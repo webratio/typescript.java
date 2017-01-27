@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import org.eclipse.core.resources.IContainer;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
@@ -26,6 +27,7 @@ import ts.eclipse.ide.core.utils.TypeScriptResourceUtil;
 import ts.eclipse.ide.core.utils.WorkbenchResourceUtil;
 import ts.eclipse.ide.internal.core.Trace;
 import ts.eclipse.ide.internal.core.resources.jsonconfig.JsonConfigResourcesManager;
+import ts.eclipse.ide.internal.core.resources.jsonconfig.JsonConfigScope;
 
 /**
  * Builder to transpiles TypeScript files into JavaScript files and source map
@@ -270,4 +272,38 @@ public class TypeScriptBuilder extends IncrementalProjectBuilder {
 //			e.printStackTrace();
 //		}
 	}
+
+	@Override
+	protected void clean(IProgressMonitor monitor) throws CoreException {
+		IProject project = this.getProject();
+		if (!TypeScriptResourceUtil.isTypeScriptProject(project)) {
+			return;
+		}
+
+		IIDETypeScriptProject tsProject = TypeScriptResourceUtil.getTypeScriptProject(project);
+		ITypeScriptBuildPath buildPath = tsProject.getTypeScriptBuildPath();
+		ITsconfigBuildPath[] tsContainers = buildPath.getTsconfigBuildPaths();
+		for (int i = 0; i < tsContainers.length; i++) {
+			ITsconfigBuildPath tsContainer = tsContainers[i];
+			try {
+				IDETsconfigJson tsconfig = tsContainer.getTsconfig();
+				JsonConfigScope scope = JsonConfigResourcesManager.getInstance()
+						.getDefinedScope(tsconfig.getTsconfigFile());
+				// Delete all emitted files and markers
+				getProject().accept(resource -> {
+					if (resource instanceof IFile) {
+						if (scope.emits(resource)) {
+							resource.delete(true, null);
+						}
+						return false;
+					}
+					return (resource instanceof IContainer);
+				});
+				TypeScriptResourceUtil.deleteTscMarker(getProject());
+			} catch (CoreException e) {
+				Trace.trace(Trace.SEVERE, "Error while cleaning", e);
+			}
+		}
+	}
+
 }
