@@ -11,10 +11,13 @@
 package ts.eclipse.ide.core.utils;
 
 import java.io.File;
+import java.util.HashSet;
+import java.util.Set;
 
 import org.eclipse.core.resources.IContainer;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IResource;
+import org.eclipse.core.resources.IResourceVisitor;
 import org.eclipse.core.resources.IWorkspaceRoot;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
@@ -80,6 +83,21 @@ public class WorkbenchResourceUtil {
 			}
 		}
 		return null;
+	}
+
+	public static Set<IFile> findAllFilesFromWorkspaceByName(String name) throws CoreException {
+		Set<IFile> foundFiles = new HashSet<>();
+		ResourcesPlugin.getWorkspace().getRoot().accept(new IResourceVisitor() {
+			@Override
+			public boolean visit(IResource resource) throws CoreException {
+				if (resource.getType() == IResource.FILE && name.equals(resource.getName())) {
+					foundFiles.add((IFile) resource);
+					return false;
+				}
+				return (resource instanceof IContainer);
+			}
+		});
+		return foundFiles;
 	}
 
 	public static IContainer findContainerFromWorkspace(String path) {

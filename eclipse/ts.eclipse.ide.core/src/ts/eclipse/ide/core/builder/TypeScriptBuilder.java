@@ -25,6 +25,7 @@ import ts.eclipse.ide.core.resources.jsconfig.IDETsconfigJson;
 import ts.eclipse.ide.core.utils.TypeScriptResourceUtil;
 import ts.eclipse.ide.core.utils.WorkbenchResourceUtil;
 import ts.eclipse.ide.internal.core.Trace;
+import ts.eclipse.ide.internal.core.resources.jsonconfig.JsonConfigResourcesManager;
 
 /**
  * Builder to transpiles TypeScript files into JavaScript files and source map
@@ -116,11 +117,15 @@ public class TypeScriptBuilder extends IncrementalProjectBuilder {
 					case IResourceDelta.CHANGED:
 						if (TypeScriptResourceUtil.isTsOrTsxFile(resource)) {
 							addTsFile(buildPath, tsFilesToCompile, resource);
+						} else if (TypeScriptResourceUtil.isTsConfigFile(resource)) {
+							JsonConfigResourcesManager.getInstance().addOrUpdate((IFile) resource);
 						}
 						break;
 					case IResourceDelta.REMOVED:
 						if (TypeScriptResourceUtil.isTsOrTsxFile(resource)) {
 							addTsFile(buildPath, tsFilesToDelete, resource);
+						} else if (TypeScriptResourceUtil.isTsConfigFile(resource)) {
+							JsonConfigResourcesManager.getInstance().remove((IFile) resource);
 						}
 						break;
 					}

@@ -12,18 +12,19 @@ package ts.eclipse.ide.core.utils;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 import org.eclipse.core.filebuffers.FileBuffers;
 import org.eclipse.core.filebuffers.ITextFileBuffer;
 import org.eclipse.core.filebuffers.ITextFileBufferManager;
 import org.eclipse.core.filebuffers.LocationKind;
 import org.eclipse.core.resources.ICommand;
-import org.eclipse.core.resources.IContainer;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IMarker;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IProjectDescription;
 import org.eclipse.core.resources.IResource;
+import org.eclipse.core.resources.IWorkspaceRoot;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IAdaptable;
@@ -36,11 +37,11 @@ import org.eclipse.jface.text.IDocument;
 
 import ts.eclipse.ide.core.TypeScriptCorePlugin;
 import ts.eclipse.ide.core.builder.TypeScriptBuilder;
-import ts.eclipse.ide.core.preferences.TypeScriptCorePreferenceConstants;
 import ts.eclipse.ide.core.resources.IIDETypeScriptProject;
 import ts.eclipse.ide.core.resources.jsconfig.IDETsconfigJson;
 import ts.eclipse.ide.internal.core.resources.IDEResourcesManager;
 import ts.eclipse.ide.internal.core.resources.jsonconfig.JsonConfigResourcesManager;
+import ts.eclipse.ide.internal.core.resources.jsonconfig.JsonConfigScope;
 import ts.resources.TypeScriptResourcesManager;
 import ts.utils.FileUtils;
 import ts.utils.StringUtils;
@@ -202,7 +203,7 @@ public class TypeScriptResourceUtil {
 	 * @return true if the given *.js file or *.js.map have a corresponding *.ts
 	 *         file in the same folder and false otherwise.
 	 */
-	public static boolean isEmittedFile(IFile jsOrJsMapFile) {
+	public static boolean isObviousEmittedFile(IFile jsOrJsMapFile) {
 		if (!isJsOrJsMapFile(jsOrJsMapFile)) {
 			return false;
 		}
@@ -229,33 +230,20 @@ public class TypeScriptResourceUtil {
 			return;
 		}
 
-		// Find tsconfig.json
-		IDETsconfigJson tsconfig = findTsconfig(tsFile);
-		refreshAndCollectEmittedFiles(tsFile, tsconfig, refresh, emittedFiles);
+		// Find all tsconfig.json's
+		for (IDETsconfigJson tsconfig : findIncludingTsconfigs(tsFile)) {
+			refreshAndCollectEmittedFiles(tsFile, tsconfig, refresh, emittedFiles);
+		}
 	}
 
 	public static void refreshAndCollectEmittedFiles(IFile tsFile, IDETsconfigJson tsconfig, boolean refresh,
 			List<IFile> emittedFiles) throws CoreException {
-		IContainer baseDir = tsFile.getParent();
-		// Set outDir with the folder of the ts file.
-		IContainer outDir = tsFile.getParent();
-		if (tsconfig != null) {
-			// tsconfig.json exists and "outDir" is setted, set "outDir" with
-			// the tsconfig.json/compilerOption/outDir
-			IContainer configOutDir = tsconfig.getOutDir();
-			if (configOutDir != null && configOutDir.exists()) {
-				outDir = configOutDir;
-			}
-		}
+		JsonConfigScope scope = JsonConfigResourcesManager.getInstance().getDefinedScope(tsconfig.getTsconfigFile());
 
-		IPath tsFileNamePath = WorkbenchResourceUtil.getRelativePath(tsFile, baseDir).removeFileExtension();
-		// Refresh *.js file
-		IPath jsFilePath = tsFileNamePath.addFileExtension(FileUtils.JS_EXTENSION);
-		refreshAndCollectEmittedFile(jsFilePath, outDir, refresh, emittedFiles);
-		// Refresh *.js.map file
-		IPath jsMapFilePath = tsFileNamePath.addFileExtension(FileUtils.JS_EXTENSION)
-				.addFileExtension(FileUtils.MAP_EXTENSION);
-		refreshAndCollectEmittedFile(jsMapFilePath, outDir, refresh, emittedFiles);
+		// Refresh emitted files
+		for (IFile file : scope.getSpecificEmittedFiles(tsFile)) {
+			refreshAndCollectEmittedFile(file.getFullPath(), refresh, emittedFiles);
+		}
 		// Refresh ts file
 		if (refresh) {
 			refreshFile(tsFile, false);
@@ -265,28 +253,31 @@ public class TypeScriptResourceUtil {
 	/**
 	 * 
 	 * @param emittedFilePath
-	 * @param baseDir
 	 * @param refresh
 	 * @param emittedFiles
 	 * @throws CoreException
 	 */
-	public static void refreshAndCollectEmittedFile(IPath emittedFilePath, IContainer baseDir, boolean refresh,
-			List<IFile> emittedFiles) throws CoreException {
+	public static void refreshAndCollectEmittedFile(IPath emittedFilePath, boolean refresh, List<IFile> emittedFiles)
+			throws CoreException {
 		IFile emittedFile = null;
 		if (refresh) {
 			// refresh emitted file *.js, *.js.map
-			emittedFile = baseDir.getFile(emittedFilePath);
+			emittedFile = getRoot().getFile(emittedFilePath);
 			refreshFile(emittedFile, true);
 		}
 
 		if (emittedFiles != null) {
-			if (emittedFile == null && baseDir.exists(emittedFilePath)) {
-				emittedFile = baseDir.getFile(emittedFilePath);
+			if (emittedFile == null && getRoot().exists(emittedFilePath)) {
+				emittedFile = getRoot().getFile(emittedFilePath);
 			}
 			if (emittedFile != null) {
 				emittedFiles.add(emittedFile);
 			}
 		}
+	}
+
+	private static IWorkspaceRoot getRoot() {
+		return ResourcesPlugin.getWorkspace().getRoot();
 	}
 
 	public static void refreshFile(IFile file, boolean emittedFile) throws CoreException {
@@ -304,8 +295,12 @@ public class TypeScriptResourceUtil {
 		}
 	}
 
-	public static IDETsconfigJson findTsconfig(IResource resource) throws CoreException {
-		return JsonConfigResourcesManager.getInstance().findTsconfig(resource);
+	public static IDETsconfigJson findClosestTsconfig(IResource resource) throws CoreException {
+		return JsonConfigResourcesManager.getInstance().findClosestTsconfig(resource);
+	}
+
+	public static Set<IDETsconfigJson> findIncludingTsconfigs(IResource resource) {
+		return JsonConfigResourcesManager.getInstance().findIncludingTsconfigs(resource);
 	}
 
 	public static IDETsconfigJson getTsconfig(IFile tsconfigFile) throws CoreException {

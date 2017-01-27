@@ -13,6 +13,7 @@ package ts.eclipse.ide.core;
 import java.io.File;
 import java.io.IOException;
 
+import org.eclipse.core.resources.IFile;
 import org.eclipse.core.runtime.FileLocator;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Platform;
@@ -23,12 +24,16 @@ import org.osgi.framework.BundleContext;
 import ts.eclipse.ide.core.nodejs.INodejsInstallManager;
 import ts.eclipse.ide.core.repository.IIDETypeScriptRepositoryManager;
 import ts.eclipse.ide.core.resources.ITypeScriptElementChangedListener;
+import ts.eclipse.ide.core.resources.watcher.IFileWatcherListener;
 import ts.eclipse.ide.core.resources.watcher.IResourcesWatcher;
+import ts.eclipse.ide.core.utils.WorkbenchResourceUtil;
 import ts.eclipse.ide.internal.core.nodejs.NodejsInstallManager;
 import ts.eclipse.ide.internal.core.repository.IDETypeScriptRepositoryManager;
 import ts.eclipse.ide.internal.core.resources.IDEResourcesManager;
+import ts.eclipse.ide.internal.core.resources.jsonconfig.JsonConfigResourcesManager;
 import ts.eclipse.ide.internal.core.resources.watcher.ResourcesWatcher;
 import ts.resources.ConfigurableTypeScriptResourcesManager;
+import ts.utils.FileUtils;
 
 /**
  * The activator class controls the plug-in life cycle
@@ -55,6 +60,24 @@ public class TypeScriptCorePlugin extends Plugin {
 		// set up resource management for IDE
 		ConfigurableTypeScriptResourcesManager resourceManager = ConfigurableTypeScriptResourcesManager.getInstance();
 		resourceManager.setTypeScriptResourcesManagerDelegate(IDEResourcesManager.getInstance());
+
+		// keep JSON configuration manager posted about changes in tsconfig.json
+		JsonConfigResourcesManager jsonConfigResourceManager = JsonConfigResourcesManager.getInstance();
+		ResourcesWatcher.getInstance().addGlobalFileWatcherListener(FileUtils.TSCONFIG_JSON, new IFileWatcherListener() {
+			@Override
+			public void onDeleted(IFile file) {
+				jsonConfigResourceManager.remove(file);
+			}
+			@Override
+			public void onChanged(IFile file) {
+				jsonConfigResourceManager.addOrUpdate(file);
+			}
+			@Override
+			public void onAdded(IFile file) {
+				jsonConfigResourceManager.addOrUpdate(file);
+			}
+		});
+		WorkbenchResourceUtil.findAllFilesFromWorkspaceByName(FileUtils.TSCONFIG_JSON).forEach(jsonConfigResourceManager::addOrUpdate);
 	}
 
 	/**

@@ -24,6 +24,7 @@ public class CompilerOptions extends AbstractOptions {
 	private boolean allowUnusedLabels;
 	private String charset;
 	private boolean declaration;
+	private String declarationDir;
 	private boolean diagnostics;
 	private boolean emitBOM;
 	private boolean emitDecoratorMetadata;
@@ -71,6 +72,8 @@ public class CompilerOptions extends AbstractOptions {
 	private boolean suppressImplicitAnyIndexErrors;
 	private String target;
 	private boolean traceResolution;
+	private List<String> typeRoots;
+	private List<String> types;
 	private boolean version;
 	private Boolean watch;
 
@@ -243,6 +246,26 @@ public class CompilerOptions extends AbstractOptions {
 	 */
 	public void setDeclaration(boolean declaration) {
 		this.declaration = declaration;
+	}
+
+	/**
+	 * Specify output directory for generated declaration files. Requires
+	 * TypeScript version 2.0 or later.
+	 * 
+	 * @return
+	 */
+	public String getDeclarationDir() {
+		return declarationDir;
+	}
+
+	/**
+	 * Specify output directory for generated declaration files. Requires
+	 * TypeScript version 2.0 or later.
+	 * 
+	 * @param declarationDir
+	 */
+	public void setDeclarationDir(String declarationDir) {
+		this.declarationDir = declarationDir;
 	}
 
 	/**
@@ -1191,6 +1214,52 @@ public class CompilerOptions extends AbstractOptions {
 	}
 
 	/**
+	 * Specify list of directory for type definition files to be include.
+	 * Requires TypeScript version 2.0 or later.
+	 * 
+	 * @return
+	 */
+	public List<String> getTypeRoots() {
+		if (typeRoots == null) {
+			return null;
+		}
+		return Collections.unmodifiableList(typeRoots);
+	}
+
+	/**
+	 * Specify list of directory for type definition files to be include.
+	 * Requires TypeScript version 2.0 or later.
+	 * 
+	 * @param typeRoots
+	 */
+	public void setTypeRoots(List<String> typeRoots) {
+		this.typeRoots = typeRoots != null ? new ArrayList<>(typeRoots) : null;
+	}
+
+	/**
+	 * Type declaration files to be included in compilation. Requires TypeScript
+	 * version 2.0 or later.
+	 * 
+	 * @return
+	 */
+	public List<String> getTypes() {
+		if (types == null) {
+			return null;
+		}
+		return Collections.unmodifiableList(types);
+	}
+
+	/**
+	 * Type declaration files to be included in compilation. Requires TypeScript
+	 * version 2.0 or later.
+	 * 
+	 * @param types
+	 */
+	public void setTypes(List<String> types) {
+		this.types = types != null ? new ArrayList<>(types) : null;
+	}
+
+	/**
 	 * Print the compiler’s version.
 	 * 
 	 * @return
@@ -1243,6 +1312,7 @@ public class CompilerOptions extends AbstractOptions {
 		fillOption("--allowUnusedLabels", isAllowUnusedLabels(), args);
 		fillOption("--charset", getCharset(), args);
 		fillOption("--declaration", isDeclaration(), args);
+		fillOption("--declarationDir", getDeclarationDir(), args);
 		fillOption("--diagnostics", isDiagnostics(), args);
 		fillOption("--emitBOM", isEmitBOM(), args);
 		fillOption("--emitDecoratorMetadata", isEmitDecoratorMetadata(), args);
@@ -1287,6 +1357,8 @@ public class CompilerOptions extends AbstractOptions {
 		fillOption("--suppressImplicitAnyIndexErrors", isSuppressImplicitAnyIndexErrors(), args);
 		fillOption("--target", getTarget(), args);
 		fillOption("--traceResolution", isTraceResolution(), args);
+		fillOption("--typeRoots", getTypeRoots(), args);
+		fillOption("--types", getTypes(), args);
 		fillOption("--version", isVersion(), args);
 		fillOption("--watch", isWatch(), args);
 	}

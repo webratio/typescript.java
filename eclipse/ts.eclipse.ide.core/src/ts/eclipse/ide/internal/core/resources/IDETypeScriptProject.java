@@ -31,8 +31,8 @@ import ts.eclipse.ide.core.console.ITypeScriptConsoleConnector;
 import ts.eclipse.ide.core.resources.IIDETypeScriptFile;
 import ts.eclipse.ide.core.resources.IIDETypeScriptProject;
 import ts.eclipse.ide.core.resources.IIDETypeScriptProjectSettings;
-import ts.eclipse.ide.core.resources.buildpath.ITypeScriptBuildPath;
 import ts.eclipse.ide.core.resources.buildpath.ITsconfigBuildPath;
+import ts.eclipse.ide.core.resources.buildpath.ITypeScriptBuildPath;
 import ts.eclipse.ide.core.resources.jsconfig.IDETsconfigJson;
 import ts.eclipse.ide.core.resources.watcher.IFileWatcherListener;
 import ts.eclipse.ide.core.resources.watcher.ProjectWatcherListenerAdapter;
@@ -272,7 +272,7 @@ public class IDETypeScriptProject extends TypeScriptProject implements IIDETypeS
 	 * @throws CoreException
 	 */
 	private boolean isJsFileIsInScope(IFile file, ITsconfigBuildPath tsContainer) throws CoreException {
-		if (TypeScriptResourceUtil.isEmittedFile(file)) {
+		if (TypeScriptResourceUtil.isObviousEmittedFile(file)) {
 			// the js file is an emitted file
 			return false;
 		}

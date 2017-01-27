@@ -28,8 +28,9 @@ import ts.eclipse.ide.core.resources.jsconfig.IDETsconfigJson;
 import ts.eclipse.ide.core.utils.TypeScriptResourceUtil;
 import ts.eclipse.ide.core.utils.WorkbenchResourceUtil;
 import ts.eclipse.ide.internal.core.Trace;
+import ts.eclipse.ide.internal.core.resources.jsonconfig.JsonConfigResourcesManager;
+import ts.eclipse.ide.internal.core.resources.jsonconfig.JsonConfigScope;
 import ts.resources.jsonconfig.TsconfigJson;
-import ts.utils.FileUtils;
 
 /**
  * Eclipse IDE implementation of {@link ITypeScriptCompilerMessageHandler} used
@@ -52,7 +53,7 @@ public class IDETypeScriptCompilerMessageHandler implements ITypeScriptCompilerM
 			throws CoreException {
 		this.container = container;
 		this.listEmittedFiles = listEmittedFiles;
-		this.tsconfig = TypeScriptResourceUtil.findTsconfig(container);
+		this.tsconfig = TypeScriptResourceUtil.findClosestTsconfig(container);
 		this.filesToRefresh = new ArrayList<IFile>();
 		this.emittedFiles = new ArrayList<IFile>();
 		if (deleteMarkers) {
@@ -110,17 +111,12 @@ public class IDETypeScriptCompilerMessageHandler implements ITypeScriptCompilerM
 				Trace.trace(Trace.SEVERE, "Error while tsc compilation when ts file is refreshed", e);
 			}
 		}
-		// refresh outFile if tsconfig.json defines it.
+		// refresh single emitted files if tsconfig.json defines it.
 		if (tsconfig != null) {
-			// Refresh *.js outFile
-			IFile outFile = tsconfig.getOutFile();
-			if (outFile != null) {
-				TypeScriptResourceUtil.refreshFile(outFile, true);
-				// Refresh *.js.map outFile
-				IContainer outDir = outFile.getParent();
-				IPath mapFileNamePath = WorkbenchResourceUtil.getRelativePath(outFile, outDir)
-						.addFileExtension(FileUtils.MAP_EXTENSION);
-				TypeScriptResourceUtil.refreshAndCollectEmittedFile(mapFileNamePath, outDir, true, null);
+			JsonConfigScope scope = JsonConfigResourcesManager.getInstance()
+					.getDefinedScope(tsconfig.getTsconfigFile());
+			for (IFile emittedFile : scope.getSingleEmittedFiles()) {
+				TypeScriptResourceUtil.refreshFile(emittedFile, true);
 			}
 		}
 	}

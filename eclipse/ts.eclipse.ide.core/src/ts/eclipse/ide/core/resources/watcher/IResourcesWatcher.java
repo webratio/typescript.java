@@ -1,6 +1,5 @@
 package ts.eclipse.ide.core.resources.watcher;
 
-import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IProject;
 
 /**
@@ -23,4 +22,9 @@ public interface IResourcesWatcher {
 	void addFileWatcherListener(IProject project, String fileName, IFileWatcherListener listener);
 
 	void removeFileWatcherListener(IProject project, String fileName, IFileWatcherListener listener);
+
+	void addGlobalFileWatcherListener(String fileName, IFileWatcherListener listener);
+
+	void removeGlobalFileWatcherListener(String fileName, IFileWatcherListener listener);
+
 }

@@ -44,10 +44,12 @@ public class ResourcesWatcher implements IResourcesWatcher, IResourceChangeListe
 
 	private final Map<IProject, List<IProjectWatcherListener>> projectListeners;
 	private final Map<IProject, Map<String, List<IFileWatcherListener>>> fileListeners;
+	private final Map<String, List<IFileWatcherListener>> globalFileListeners;
 
 	private ResourcesWatcher() {
 		this.projectListeners = new HashMap<IProject, List<IProjectWatcherListener>>();
 		this.fileListeners = new HashMap<IProject, Map<String, List<IFileWatcherListener>>>();
+		this.globalFileListeners = new HashMap<String, List<IFileWatcherListener>>();
 		ResourcesPlugin.getWorkspace().addResourceChangeListener(this);
 	}
 
@@ -58,6 +60,9 @@ public class ResourcesWatcher implements IResourcesWatcher, IResourceChangeListe
 		}
 		synchronized (fileListeners) {
 			this.fileListeners.clear();
+		}
+		synchronized (globalFileListeners) {
+			this.globalFileListeners.clear();
 		}
 	}
 
@@ -113,6 +118,30 @@ public class ResourcesWatcher implements IResourcesWatcher, IResourceChangeListe
 				if (listenersForProjectAndFile != null) {
 					listenersForProjectAndFile.remove(listener);
 				}
+			}
+		}
+	}
+
+	@Override
+	public void addGlobalFileWatcherListener(String fileName, IFileWatcherListener listener) {
+		synchronized (globalFileListeners) {
+			List<IFileWatcherListener> listenersForFile = globalFileListeners.get(fileName);
+			if (listenersForFile == null) {
+				listenersForFile = new ArrayList<IFileWatcherListener>();
+				globalFileListeners.put(fileName, listenersForFile);
+			}
+			if (!listenersForFile.contains(listener)) {
+				listenersForFile.add(listener);
+			}
+		}
+	}
+
+	@Override
+	public void removeGlobalFileWatcherListener(String fileName, IFileWatcherListener listener) {
+		synchronized (globalFileListeners) {
+			List<IFileWatcherListener> listenersForFile = globalFileListeners.get(fileName);
+			if (listenersForFile != null) {
+				listenersForFile.remove(listener);
 			}
 		}
 	}
@@ -199,34 +228,44 @@ public class ResourcesWatcher implements IResourcesWatcher, IResourceChangeListe
 				// System.err.println("Open");
 			}
 			// Continue if project has defined file listeners.
-			return fileListeners.containsKey(resource);
+			return !globalFileListeners.isEmpty() || fileListeners.containsKey(resource);
 		case IResource.FOLDER:
 			return true;
 		case IResource.FILE:
 			IFile file = (IFile) resource;
 			synchronized (fileListeners) {
 				Map<String, List<IFileWatcherListener>> listenersForFilename = fileListeners.get(file.getProject());
-				List<IFileWatcherListener> listeners = listenersForFilename.get(file.getName());
-				if (listeners != null) {
-					for (IFileWatcherListener listener : listeners) {
-						switch (delta.getKind()) {
-						case IResourceDelta.ADDED:							
-							// handle added resource
-							listener.onAdded(file);
-							break;
-						case IResourceDelta.REMOVED:
-							// handle removed resource
-							listener.onDeleted(file);
-							break;
-						default:
-							listener.onChanged(file);
-						}
-					}
+				if (listenersForFilename != null) {
+					notifyFileListeners(listenersForFilename, file, delta.getKind());
 				}
+			}
+			synchronized (globalFileListeners) {
+				notifyFileListeners(globalFileListeners, file, delta.getKind());
 			}
 			return false;
 		}
 		return false;
+	}
+
+	private void notifyFileListeners(Map<String, List<IFileWatcherListener>> listenersForFilename, IFile file,
+			int deltaKind) {
+		List<IFileWatcherListener> listeners = listenersForFilename.get(file.getName());
+		if (listeners != null) {
+			for (IFileWatcherListener listener : listeners) {
+				switch (deltaKind) {
+				case IResourceDelta.ADDED:
+					// handle added resource
+					listener.onAdded(file);
+					break;
+				case IResourceDelta.REMOVED:
+					// handle removed resource
+					listener.onDeleted(file);
+					break;
+				default:
+					listener.onChanged(file);
+				}
+			}
+		}
 	}
 
 }

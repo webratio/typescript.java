@@ -19,4 +19,11 @@ public abstract class AbstractOptions implements IOptions{
 		}
 	}
 
+	protected void fillOption(String name, List<String> value, List<String> args) {
+		if (value != null && !value.isEmpty()) {
+			args.add(name);
+			args.add(String.join(",", value));
+		}
+	}
+
 }

@@ -42,6 +42,8 @@ public class TsconfigJson {
 
 	private List<String> files;
 
+	private List<String> include;
+
 	private List<String> exclude;
 
 	private List<String> defaultExclude;
@@ -114,6 +116,18 @@ public class TsconfigJson {
 		return files != null;
 	}
 
+	public List<String> getInclude() {
+		return include;
+	}
+
+	public void setInclude(List<String> include) {
+		this.include = include;
+	}
+
+	public boolean hasInclude() {
+		return include != null;
+	}
+
 	public List<String> getExclude() {
 		return exclude;
 	}
@@ -178,7 +192,7 @@ public class TsconfigJson {
 	 * @return the defined "exclude" list from the tsconfig.json other exclude
 	 *         by default "node_modules" and "bower_components".
 	 */
-	protected List<String> getDefaultOrDefinedExclude() {
+	public List<String> getDefaultOrDefinedExclude() {
 		if (exclude != null) {
 			return exclude;
 		}
