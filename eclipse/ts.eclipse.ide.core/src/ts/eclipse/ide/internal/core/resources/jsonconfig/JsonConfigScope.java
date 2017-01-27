@@ -3,8 +3,11 @@ package ts.eclipse.ide.internal.core.resources.jsonconfig;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import org.eclipse.core.resources.IContainer;
 import org.eclipse.core.resources.IFile;
@@ -291,6 +294,8 @@ public final class JsonConfigScope {
 	private final IPath mapOutputBasePath;
 	private final IPath declarationOutputBasePath;
 
+	private Set<IPath> entrancePaths; // lazy
+
 	private JsonConfigScope(Builder builder) {
 		this.configFile = builder.tsconfig.getTsconfigFile();
 		this.alwaysIncluded = Collections.unmodifiableList(builder.alwaysIncluded);
@@ -391,6 +396,29 @@ public final class JsonConfigScope {
 			isContainer = true;
 		}
 		return false;
+	}
+
+	/**
+	 * Determine whether a resource <i>might deeply contain</i> resources that
+	 * are directly included in this scope, as per {@link #includes}.
+	 * 
+	 * @param resource
+	 * @return
+	 */
+	public boolean mightIncludeWithin(IResource resource) {
+		synchronized (this) {
+			if (entrancePaths == null) {
+				entrancePaths = new HashSet<>();
+				Stream.of(included, excluded, alwaysIncluded).flatMap(List::stream).forEach(resSet -> {
+					IPath path = resSet.basePath;
+					while (path.segmentCount() > 0) {
+						entrancePaths.add(path);
+						path = path.removeLastSegments(1);
+					}
+				});
+			}
+		}
+		return entrancePaths.contains(resource.getFullPath());
 	}
 
 	/**

@@ -19,7 +19,6 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
-import org.eclipse.core.resources.IContainer;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
@@ -35,6 +34,8 @@ import ts.eclipse.ide.core.resources.buildpath.ITypeScriptBuildPath;
 import ts.eclipse.ide.core.resources.buildpath.ITypeScriptBuildPathEntry;
 import ts.eclipse.ide.core.utils.TypeScriptResourceUtil;
 import ts.eclipse.ide.internal.core.resources.IDETypeScriptProjectSettings;
+import ts.eclipse.ide.internal.core.resources.jsonconfig.JsonConfigResourcesManager;
+import ts.eclipse.ide.internal.core.resources.jsonconfig.JsonConfigScope;
 import ts.utils.FileUtils;
 import ts.utils.StringUtils;
 
@@ -155,6 +156,18 @@ public class TypeScriptBuildPath implements ITypeScriptBuildPath {
 	}
 
 	@Override
+	public boolean isScopeEntrance(IResource resource) {
+		for (ITsconfigBuildPath tsconfigBuildPath : getTsconfigBuildPathList()) {
+			JsonConfigScope scope = JsonConfigResourcesManager.getInstance()
+					.getDefinedScope(tsconfigBuildPath.getTsconfigFile());
+			if (scope.mightIncludeWithin(resource)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	@Override
 	public boolean isInScope(IResource resource) {
 		return findTsconfigBuildPath(resource) != null;
 	}
@@ -173,8 +186,9 @@ public class TypeScriptBuildPath implements ITypeScriptBuildPath {
 	@Override
 	public ITsconfigBuildPath findTsconfigBuildPath(IResource resource) {
 		for (ITsconfigBuildPath tsconfigBuildPath : getTsconfigBuildPathList()) {
-			IContainer container = tsconfigBuildPath.getTsconfigFile().getParent();
-			if (container.getFullPath().isPrefixOf(resource.getFullPath())) {
+			JsonConfigScope scope = JsonConfigResourcesManager.getInstance()
+					.getDefinedScope(tsconfigBuildPath.getTsconfigFile());
+			if (scope.includes(resource)) {
 				return tsconfigBuildPath;
 			}
 		}

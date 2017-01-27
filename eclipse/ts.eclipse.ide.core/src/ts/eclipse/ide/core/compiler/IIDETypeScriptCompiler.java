@@ -31,10 +31,11 @@ public interface IIDETypeScriptCompiler extends ITypeScriptCompiler {
 	 * 
 	 * @param tsconfig
 	 *            tsconfig.json file.
+	 * @return
 	 * @throws TypeScriptException
 	 * @throws CoreException
 	 */
-	public void compile(IDETsconfigJson tsconfig) throws TypeScriptException, CoreException;
+	public IIDETypeScriptCompileResult compile(IDETsconfigJson tsconfig) throws TypeScriptException, CoreException;
 
 	/**
 	 * Try to compile the given ts files by using tsconfig.json compiler
@@ -43,8 +44,10 @@ public interface IIDETypeScriptCompiler extends ITypeScriptCompiler {
 	 * @param tsconfig
 	 *            tsconfig.json file.
 	 * @param tsFiles
+	 * @return
 	 * @throws TypeScriptException
 	 * @throws CoreException
 	 */
-	public void compile(IDETsconfigJson tsconfig, List<IFile> tsFiles) throws TypeScriptException, CoreException;
+	public IIDETypeScriptCompileResult compile(IDETsconfigJson tsconfig, List<IFile> tsFiles)
+			throws TypeScriptException, CoreException;
 }

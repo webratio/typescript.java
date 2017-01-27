@@ -27,17 +27,25 @@ public interface ITypeScriptBuildPath {
 	ITsconfigBuildPath[] getTsconfigBuildPaths();
 
 	/**
-	 * Returns true if the given resource is in the scope of the build path and
-	 * false otherwise.
+	 * Determines whether the given resource leads to the start (or IS the
+	 * start) of the scope of files included in the build path.
 	 * 
 	 * @param resource
-	 * @return true if the given resource is in the scope of the build path and
-	 *         false otherwise.
+	 * @return {@code true} if the resource leads to the scope.
+	 */
+	boolean isScopeEntrance(IResource resource);
+
+	/**
+	 * Determines whether the given resource is in the scope of files included
+	 * in the build path.
+	 * 
+	 * @param resource
+	 * @return {@code true} if the resource is in the scope.
 	 */
 	boolean isInScope(IResource resource);
 
 	ITsconfigBuildPath findTsconfigBuildPath(IResource resource);
-
+	
 	void addEntry(IFile tsconfigFile);
 
 	void addEntry(ITypeScriptBuildPathEntry entry);

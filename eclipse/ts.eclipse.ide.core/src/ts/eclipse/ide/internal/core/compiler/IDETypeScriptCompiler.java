@@ -44,21 +44,22 @@ public class IDETypeScriptCompiler extends TypeScriptCompiler implements IIDETyp
 	}
 
 	@Override
-	public void compile(IDETsconfigJson tsconfig) throws TypeScriptException, CoreException {
-		doCompile(tsconfig, Collections.emptyList(), true);
+	public IDETypeScriptCompileResult compile(IDETsconfigJson tsconfig) throws TypeScriptException, CoreException {
+		return doCompile(tsconfig, Collections.emptyList(), true);
 	}
 
 	@Override
-	public void compile(IDETsconfigJson tsconfig, List<IFile> tsFiles) throws TypeScriptException, CoreException {
-		doCompile(tsconfig, tsFiles, false);
+	public IDETypeScriptCompileResult compile(IDETsconfigJson tsconfig, List<IFile> tsFiles)
+			throws TypeScriptException, CoreException {
+		return doCompile(tsconfig, tsFiles, false);
 	}
 
-	private void doCompile(IDETsconfigJson tsconfig, List<IFile> tsFiles, boolean forceFull)
+	private IDETypeScriptCompileResult doCompile(IDETsconfigJson tsconfig, List<IFile> tsFiles, boolean forceFull)
 			throws TypeScriptException, CoreException {
 		IFile tsconfigFile = tsconfig.getTsconfigFile();
 		if (tsconfig.isBuildOnSave() || forceFull) {
 			// Compile the whole files for the given tsconfig.json
-			compile(tsconfigFile, tsconfig.getCompilerOptions(), tsFiles, true);
+			return compile(tsconfigFile, tsconfig.getCompilerOptions(), tsFiles, true);
 		} else {
 			if (tsconfig.isCompileOnSave()) {
 				// compileOnSave is activated
@@ -79,6 +80,7 @@ public class IDETypeScriptCompiler extends TypeScriptCompiler implements IIDETyp
 						// delete emitted files *.js, *.js.map
 						TypeScriptResourceUtil.deleteEmittedFiles(tsFile, tsconfig);
 					}
+					return IDETypeScriptCompileResult.forAbortedBuild(false);
 				} else {
 					// check that ts files are in the scope of the tsconfig.json
 					List<IFile> tsFilesToCompile = new ArrayList<IFile>(tsFiles);
@@ -90,8 +92,9 @@ public class IDETypeScriptCompiler extends TypeScriptCompiler implements IIDETyp
 					}
 					// compile the list of ts files.
 					if (!tsFilesToCompile.isEmpty()) {
-						compile(tsconfigFile, tsconfig.getCompilerOptions(), tsFilesToCompile, false);
+						return compile(tsconfigFile, tsconfig.getCompilerOptions(), tsFilesToCompile, false);
 					}
+					return IDETypeScriptCompileResult.forEmptyBuild(false);
 				}
 			} else {
 				// compileOnSave is setted to false in the
@@ -110,6 +113,7 @@ public class IDETypeScriptCompiler extends TypeScriptCompiler implements IIDETyp
 					// delete emitted files *.js, *.js.map
 					TypeScriptResourceUtil.deleteEmittedFiles(tsFile, tsconfig);
 				}
+				return IDETypeScriptCompileResult.forAbortedBuild(false);
 			}
 		}
 	}
@@ -124,7 +128,8 @@ public class IDETypeScriptCompiler extends TypeScriptCompiler implements IIDETyp
 		return null;
 	}
 
-	private void compile(IFile tsConfigFile, CompilerOptions tsconfigOptions, List<IFile> tsFiles, boolean buildOnSave)
+	private IDETypeScriptCompileResult compile(IFile tsConfigFile, CompilerOptions tsconfigOptions, List<IFile> tsFiles,
+			boolean buildOnSave)
 			throws TypeScriptException, CoreException {
 		IContainer container = tsConfigFile.getParent();
 		IDETypeScriptCompilerReporter reporter = new IDETypeScriptCompilerReporter(container, listEmittedFiles,
@@ -142,6 +147,7 @@ public class IDETypeScriptCompiler extends TypeScriptCompiler implements IIDETyp
 			}
 		}
 
+		return IDETypeScriptCompileResult.forCompletedBuild(buildOnSave, reporter.getFilesToRefresh());
 	}
 
 	private void addCompilationContextMarkerError(IFile tsFile, IFile tsConfigFile) throws CoreException {

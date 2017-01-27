@@ -1,10 +1,16 @@
 package ts.eclipse.ide.core.builder;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.eclipse.core.resources.IContainer;
 import org.eclipse.core.resources.IFile;
@@ -12,17 +18,22 @@ import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.resources.IResourceDelta;
 import org.eclipse.core.resources.IResourceDeltaVisitor;
+import org.eclipse.core.resources.IWorkspaceRoot;
 import org.eclipse.core.resources.IncrementalProjectBuilder;
+import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IProgressMonitor;
 
 import ts.TypeScriptException;
 import ts.client.CommandNames;
+import ts.eclipse.ide.core.TypeScriptCorePlugin;
+import ts.eclipse.ide.core.compiler.IIDETypeScriptCompileResult;
 import ts.eclipse.ide.core.resources.IIDETypeScriptFile;
 import ts.eclipse.ide.core.resources.IIDETypeScriptProject;
 import ts.eclipse.ide.core.resources.buildpath.ITsconfigBuildPath;
 import ts.eclipse.ide.core.resources.buildpath.ITypeScriptBuildPath;
 import ts.eclipse.ide.core.resources.jsconfig.IDETsconfigJson;
+import ts.eclipse.ide.core.utils.PersistedState;
 import ts.eclipse.ide.core.utils.TypeScriptResourceUtil;
 import ts.eclipse.ide.core.utils.WorkbenchResourceUtil;
 import ts.eclipse.ide.internal.core.Trace;
@@ -54,6 +65,17 @@ public class TypeScriptBuilder extends IncrementalProjectBuilder {
 //		}
 //	};
 
+	private static final PersistedState PERSISTED_STATE;
+	static {
+		try {
+			PERSISTED_STATE = new PersistedState(TypeScriptCorePlugin.getDefault(), "TypeScriptBuilder");
+		} catch (CoreException e) {
+			throw new RuntimeException("Error initializing builder persisted state", e);
+		}
+	}
+
+	private List<IIDETypeScriptCompileResult> lastCompileResults;
+
 	@Override
 	protected IProject[] build(int kind, Map<String, String> args, final IProgressMonitor monitor)
 			throws CoreException {
@@ -62,18 +84,74 @@ public class TypeScriptBuilder extends IncrementalProjectBuilder {
 			return null;
 		}
 
-		IIDETypeScriptProject tsProject = TypeScriptResourceUtil.getTypeScriptProject(project);
-		if (kind == FULL_BUILD) {
-			fullBuild(tsProject, monitor);
-		} else {
-			IResourceDelta delta = getDelta(getProject());
-			if (delta == null) {
+		List<IIDETypeScriptCompileResult> results = this.lastCompileResults = new ArrayList<>();
+		try {
+			IIDETypeScriptProject tsProject = TypeScriptResourceUtil.getTypeScriptProject(project);
+			if (kind == FULL_BUILD) {
 				fullBuild(tsProject, monitor);
 			} else {
-				incrementalBuild(tsProject, delta, monitor);
+				Collection<IResourceDelta> deltas = collectDeltas();
+				if (deltas.isEmpty()) {
+					fullBuild(tsProject, monitor);
+				} else {
+					incrementalBuild(tsProject, deltas, monitor);
+				}
 			}
+		} finally {
+			this.lastCompileResults = null;
 		}
-		return null;
+
+		Set<IProject> inputProjects = computeInputProjects(results);
+		return inputProjects.isEmpty() ? null : inputProjects.toArray(new IProject[inputProjects.size()]);
+	}
+
+	private Collection<IResourceDelta> collectDeltas() {
+		Collection<IProject> projects = retrievePreviousInputProjects();
+		List<IResourceDelta> deltas = new ArrayList<>(projects.size());
+		{
+			IResourceDelta delta = getDelta(getProject());
+			if (delta == null) {
+				return Collections.emptyList();
+			}
+			deltas.add(delta);
+		}
+		for (IProject project : projects) {
+			IResourceDelta delta = getDelta(project);
+			if (delta == null) {
+				return Collections.emptyList();
+			}
+			deltas.add(delta);
+		}
+		return deltas;
+	}
+
+	private Set<IProject> retrievePreviousInputProjects() {
+		String previousInputProjectsNames = (String) PERSISTED_STATE.get("inputProjects." + getProject().getName(),
+				() -> "");
+		if (previousInputProjectsNames.isEmpty()) {
+			return new HashSet<>();
+		}
+		IWorkspaceRoot root = ResourcesPlugin.getWorkspace().getRoot();
+		return Stream.of(previousInputProjectsNames.split(",")).map(root::getProject).collect(Collectors.toSet());
+	}
+
+	private Set<IProject> computeInputProjects(Collection<IIDETypeScriptCompileResult> compileResults) {
+		Set<IProject> previousInputProjects = retrievePreviousInputProjects();
+		Set<IProject> newInputProjects = new HashSet<>();
+		boolean reliable = true;
+		for (IIDETypeScriptCompileResult result : compileResults) {
+			if (!result.didComplete() || !result.wasFullBuild()) {
+				reliable = false;
+			}
+			newInputProjects.addAll(result.getAccessedProjects());
+		}
+		if (!reliable) {
+			newInputProjects.addAll(previousInputProjects);
+		}
+		newInputProjects.remove(getProject());
+		PERSISTED_STATE.put("inputProjects." + getProject().getName(),
+				newInputProjects.stream().map(IProject::getName).collect(Collectors.joining(",")));
+		return newInputProjects;
 	}
 
 	private void fullBuild(IIDETypeScriptProject tsProject, IProgressMonitor monitor) throws CoreException {
@@ -90,14 +168,17 @@ public class TypeScriptBuilder extends IncrementalProjectBuilder {
 		}
 	}
 
-	private void incrementalBuild(IIDETypeScriptProject tsProject, IResourceDelta delta, IProgressMonitor monitor)
+	private void incrementalBuild(IIDETypeScriptProject tsProject, Collection<IResourceDelta> deltas,
+			IProgressMonitor monitor)
 			throws CoreException {
 
 		final ITypeScriptBuildPath buildPath = tsProject.getTypeScriptBuildPath();
 		final Map<ITsconfigBuildPath, List<IFile>> tsFilesToCompile = new HashMap<ITsconfigBuildPath, List<IFile>>();
 		final Map<ITsconfigBuildPath, List<IFile>> tsFilesToDelete = new HashMap<ITsconfigBuildPath, List<IFile>>();
 		final List<IFile> invalidatedTsconfigFiles = new ArrayList<>();
-		delta.accept(new IResourceDeltaVisitor() {
+		final IResourceDeltaVisitor deltaVisitor = new IResourceDeltaVisitor() {
+
+			private int lastScopeFolderDepth = -1;
 
 			@Override
 			public boolean visit(IResourceDelta delta) throws CoreException {
@@ -109,9 +190,19 @@ public class TypeScriptBuilder extends IncrementalProjectBuilder {
 				case IResource.ROOT:
 					return true;
 				case IResource.PROJECT:
-					return TypeScriptResourceUtil.isTypeScriptProject((IProject) resource);
 				case IResource.FOLDER:
-					return buildPath.isInScope(resource);
+					int folderDepth = resource.getFullPath().segmentCount();
+					if (lastScopeFolderDepth < 0 || folderDepth <= lastScopeFolderDepth) {
+						if (buildPath.isScopeEntrance(resource)) {
+							lastScopeFolderDepth = folderDepth;
+							return true;
+						} else {
+							lastScopeFolderDepth = -1;
+							return false;
+						}
+					} else {
+						return true;
+					}
 				case IResource.FILE:
 					int kind = delta.getKind();
 					switch (kind) {
@@ -150,7 +241,10 @@ public class TypeScriptBuilder extends IncrementalProjectBuilder {
 					deltas.add((IFile) resource);
 				}
 			}
-		});
+		};
+		for (IResourceDelta delta : deltas) {
+			delta.accept(deltaVisitor);
+		}
 
 		// If a tsconfig.json in this project changed, back off and do a full
 		// build instead
@@ -208,7 +302,8 @@ public class TypeScriptBuilder extends IncrementalProjectBuilder {
 	 */
 	public void compileWithTsc(IIDETypeScriptProject tsProject, IDETsconfigJson tsconfig)
 			throws TypeScriptException, CoreException {
-		tsProject.getCompiler().compile(tsconfig);
+		IIDETypeScriptCompileResult result = tsProject.getCompiler().compile(tsconfig);
+		this.lastCompileResults.add(result);
 	}
 
 	/**
@@ -222,7 +317,8 @@ public class TypeScriptBuilder extends IncrementalProjectBuilder {
 	 */
 	public void compileWithTsc(IIDETypeScriptProject tsProject, List<IFile> tsFiles, IDETsconfigJson tsconfig)
 			throws TypeScriptException, CoreException {
-		tsProject.getCompiler().compile(tsconfig, tsFiles);
+		IIDETypeScriptCompileResult result = tsProject.getCompiler().compile(tsconfig, tsFiles);
+		this.lastCompileResults.add(result);
 	}
 
 	/**
