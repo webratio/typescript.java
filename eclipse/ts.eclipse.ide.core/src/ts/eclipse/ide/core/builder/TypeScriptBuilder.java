@@ -79,13 +79,12 @@ public class TypeScriptBuilder extends IncrementalProjectBuilder {
 		ITsconfigBuildPath[] tsContainers = buildPath.getTsconfigBuildPaths();
 		for (int i = 0; i < tsContainers.length; i++) {
 			ITsconfigBuildPath tsContainer = tsContainers[i];
-			/*
-			 * try { IDETsconfigJson tsconfig = tsContainer.getTsconfig(); if
-			 * (tsconfig == null || tsconfig.isCompileOnSave()) {
-			 * tsProject.getCompiler().compile(tsconfig, null); } } catch
-			 * (TypeScriptException e) { Trace.trace(Trace.SEVERE,
-			 * "Error while tsc compilation", e); }
-			 */
+			try {
+				IDETsconfigJson tsconfig = tsContainer.getTsconfig();
+				compileWithTsc(tsProject, tsconfig);
+			} catch (TypeScriptException e) {
+				Trace.trace(Trace.SEVERE, "Error while tsc compilation", e);
+			}
 		}
 	}
 
@@ -95,6 +94,7 @@ public class TypeScriptBuilder extends IncrementalProjectBuilder {
 		final ITypeScriptBuildPath buildPath = tsProject.getTypeScriptBuildPath();
 		final Map<ITsconfigBuildPath, List<IFile>> tsFilesToCompile = new HashMap<ITsconfigBuildPath, List<IFile>>();
 		final Map<ITsconfigBuildPath, List<IFile>> tsFilesToDelete = new HashMap<ITsconfigBuildPath, List<IFile>>();
+		final List<IFile> invalidatedTsconfigFiles = new ArrayList<>();
 		delta.accept(new IResourceDeltaVisitor() {
 
 			@Override
@@ -119,6 +119,7 @@ public class TypeScriptBuilder extends IncrementalProjectBuilder {
 							addTsFile(buildPath, tsFilesToCompile, resource);
 						} else if (TypeScriptResourceUtil.isTsConfigFile(resource)) {
 							JsonConfigResourcesManager.getInstance().addOrUpdate((IFile) resource);
+							invalidatedTsconfigFiles.add((IFile) resource);
 						}
 						break;
 					case IResourceDelta.REMOVED:
@@ -126,6 +127,7 @@ public class TypeScriptBuilder extends IncrementalProjectBuilder {
 							addTsFile(buildPath, tsFilesToDelete, resource);
 						} else if (TypeScriptResourceUtil.isTsConfigFile(resource)) {
 							JsonConfigResourcesManager.getInstance().remove((IFile) resource);
+							invalidatedTsconfigFiles.add((IFile) resource);
 						}
 						break;
 					}
@@ -147,6 +149,15 @@ public class TypeScriptBuilder extends IncrementalProjectBuilder {
 				}
 			}
 		});
+
+		// If a tsconfig.json in this project changed, back off and do a full
+		// build instead
+		for (IFile tsconfigFile : invalidatedTsconfigFiles) {
+			if (tsconfigFile.getProject().equals(getProject())) {
+				fullBuild(tsProject, monitor);
+				return;
+			}
+		}
 
 		// Compile ts files *.ts
 		for (Entry<ITsconfigBuildPath, List<IFile>> entries : tsFilesToCompile.entrySet()) {
@@ -183,6 +194,19 @@ public class TypeScriptBuilder extends IncrementalProjectBuilder {
 			}
 
 		}
+	}
+
+	/**
+	 * Compile the given tsconfig.json with tsc.
+	 * 
+	 * @param tsProject
+	 * @param tsconfig
+	 * @throws TypeScriptException
+	 * @throws CoreException
+	 */
+	public void compileWithTsc(IIDETypeScriptProject tsProject, IDETsconfigJson tsconfig)
+			throws TypeScriptException, CoreException {
+		tsProject.getCompiler().compile(tsconfig);
 	}
 
 	/**

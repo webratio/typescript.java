@@ -12,6 +12,7 @@ package ts.eclipse.ide.internal.core.compiler;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import org.eclipse.core.resources.IContainer;
@@ -43,9 +44,19 @@ public class IDETypeScriptCompiler extends TypeScriptCompiler implements IIDETyp
 	}
 
 	@Override
+	public void compile(IDETsconfigJson tsconfig) throws TypeScriptException, CoreException {
+		doCompile(tsconfig, Collections.emptyList(), true);
+	}
+
+	@Override
 	public void compile(IDETsconfigJson tsconfig, List<IFile> tsFiles) throws TypeScriptException, CoreException {
+		doCompile(tsconfig, tsFiles, false);
+	}
+
+	private void doCompile(IDETsconfigJson tsconfig, List<IFile> tsFiles, boolean forceFull)
+			throws TypeScriptException, CoreException {
 		IFile tsconfigFile = tsconfig.getTsconfigFile();
-		if (tsconfig.isBuildOnSave()) {
+		if (tsconfig.isBuildOnSave() || forceFull) {
 			// Compile the whole files for the given tsconfig.json
 			compile(tsconfigFile, tsconfig.getCompilerOptions(), tsFiles, true);
 		} else {

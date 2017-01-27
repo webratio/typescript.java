@@ -26,6 +26,17 @@ import ts.eclipse.ide.core.resources.jsconfig.IDETsconfigJson;
 public interface IIDETypeScriptCompiler extends ITypeScriptCompiler {
 
 	/**
+	 * Compile the entire TypeScript project represented by the given
+	 * tsconfig.json compiler options.
+	 * 
+	 * @param tsconfig
+	 *            tsconfig.json file.
+	 * @throws TypeScriptException
+	 * @throws CoreException
+	 */
+	public void compile(IDETsconfigJson tsconfig) throws TypeScriptException, CoreException;
+
+	/**
 	 * Try to compile the given ts files by using tsconfig.json compiler
 	 * options.
 	 * 
