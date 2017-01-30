@@ -11,11 +11,18 @@
 package ts.eclipse.ide.internal.core.preferences;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
 
 import org.eclipse.core.runtime.FileLocator;
+import org.eclipse.core.runtime.IConfigurationElement;
+import org.eclipse.core.runtime.IExtensionRegistry;
 import org.eclipse.core.runtime.Platform;
 import org.eclipse.core.runtime.preferences.AbstractPreferenceInitializer;
 import org.eclipse.core.runtime.preferences.IEclipsePreferences;
+import org.osgi.framework.Version;
 import org.osgi.service.prefs.BackingStoreException;
 
 import ts.cmd.tslint.TslintSettingsStrategy;
@@ -35,6 +42,8 @@ import ts.repository.ITypeScriptRepository;
  */
 public class TypeScriptCorePreferenceInitializer extends AbstractPreferenceInitializer {
 
+	private static final String EXTENSION_TYPESCRIPT_REPOSITORIES = "typeScriptRepositories";
+
 	@Override
 	public void initializeDefaultPreferences() {
 		IEclipsePreferences node = WorkspaceTypeScriptSettingsHelper
@@ -45,34 +54,21 @@ public class TypeScriptCorePreferenceInitializer extends AbstractPreferenceIniti
 		initializeNodejsPreferences(node);
 
 		try {
-			File tsRepositoryBaseDir = FileLocator.getBundleFile(Platform.getBundle("ts.repository"));
-			ITypeScriptRepository defaultRepository = TypeScriptCorePlugin.getTypeScriptRepositoryManager()
-					.createDefaultRepository(tsRepositoryBaseDir);
 
-			// Loop for archives of TypeScript (1.8.10, etc)
-			File archivesDir = new File(tsRepositoryBaseDir, "archives");
-			if (archivesDir.exists()) {
-				File[] oldRepostoryBaseDirs = archivesDir.listFiles();
-				File oldRepostoryBaseDir = null;
-				for (int i = 0; i < oldRepostoryBaseDirs.length; i++) {
-					oldRepostoryBaseDir = oldRepostoryBaseDirs[i];
-					if (oldRepostoryBaseDir.isDirectory()) {
-						try {
-							TypeScriptCorePlugin.getTypeScriptRepositoryManager().createRepository(oldRepostoryBaseDir);
-						} catch (Exception e) {
-							Trace.trace(Trace.SEVERE, "Error while getting an archived TypeScript repository", e);
-						}
-					}
-				}
+			// Create repositories and choose the newest one as default
+			List<ITypeScriptRepository> repositories = createContributedTypeScriptRepositories();
+			ITypeScriptRepository defaultRepository = !repositories.isEmpty() ? repositories.get(0) : null;
+			if (defaultRepository != null) {
 
+				// Initialize tsc preferences
+				initializeTypeScriptRuntimePreferences(node, defaultRepository);
+				// Initialize tsserver preferences
+				initializeTsserverPreferences(node, defaultRepository);
+				// Initialize tslint preferences
+				initializeTslintPreferences(node, defaultRepository);
+			} else {
+				Trace.trace(Trace.WARNING, "No default TypeScript repository is available");
 			}
-
-			// Initialize tsc preferences
-			initializeTypeScriptRuntimePreferences(node, defaultRepository);
-			// Initialize tsserver preferences
-			initializeTsserverPreferences(node, defaultRepository);
-			// Initialize tslint preferences
-			initializeTslintPreferences(node, defaultRepository);
 		} catch (Exception e) {
 			Trace.trace(Trace.SEVERE, "Error while getting the default TypeScript repository", e);
 		}
@@ -202,5 +198,51 @@ public class TypeScriptCorePreferenceInitializer extends AbstractPreferenceIniti
 				Trace.trace(Trace.SEVERE, "Error while fixing embeddedTypeScriptId preference", e);
 			}
 		}
+	}
+
+	private static List<ITypeScriptRepository> createContributedTypeScriptRepositories() {
+
+		// loop over contributed TypeScript repositories, collecting them in a
+		// list
+		List<ITypeScriptRepository> repositories = new ArrayList<ITypeScriptRepository>();
+		IExtensionRegistry registry = Platform.getExtensionRegistry();
+		for (IConfigurationElement cf : registry.getConfigurationElementsFor(TypeScriptCorePlugin.PLUGIN_ID,
+				EXTENSION_TYPESCRIPT_REPOSITORIES)) {
+			String bundleId = cf.getNamespaceIdentifier();
+			try {
+				File bundleDir = FileLocator.getBundleFile(Platform.getBundle(bundleId));
+				if (!bundleDir.isDirectory()) {
+					throw new RuntimeException("Bundle location " + bundleDir
+							+ " cannot contribute a TypeScript repository because it is not a directory");
+				}
+				File repositoryDir = new File(bundleDir, cf.getAttribute("baseDir"));
+				repositories.add(
+						TypeScriptCorePlugin.getTypeScriptRepositoryManager().createDefaultRepository(repositoryDir));
+			} catch (Exception e) {
+				Trace.trace(Trace.SEVERE, "Error while procesing TypeScript repository contributed by " + bundleId, e);
+			}
+		}
+
+		// sort repositories by version in decreasing order
+		Collections.sort(repositories, new Comparator<ITypeScriptRepository>() {
+
+			@Override
+			public int compare(ITypeScriptRepository repo1, ITypeScriptRepository repo2) {
+				Version v1 = extractVerion(repo1);
+				Version v2 = extractVerion(repo2);
+				return v2.compareTo(v1);
+			}
+
+			private Version extractVerion(ITypeScriptRepository repo) {
+				try {
+					return Version.parseVersion(repo.getTypesScriptVersion());
+				} catch (IllegalArgumentException e) {
+					return Version.emptyVersion;
+				}
+			}
+
+		});
+
+		return repositories;
 	}
 }

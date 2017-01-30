@@ -10,13 +10,8 @@
  */
 package ts.eclipse.ide.core;
 
-import java.io.File;
-import java.io.IOException;
-
 import org.eclipse.core.resources.IFile;
-import org.eclipse.core.runtime.FileLocator;
 import org.eclipse.core.runtime.IStatus;
-import org.eclipse.core.runtime.Platform;
 import org.eclipse.core.runtime.Plugin;
 import org.eclipse.core.runtime.Status;
 import org.osgi.framework.BundleContext;
@@ -78,16 +73,6 @@ public class TypeScriptCorePlugin extends Plugin {
 			}
 		});
 		WorkbenchResourceUtil.findAllFilesFromWorkspaceByName(FileUtils.TSCONFIG_JSON).forEach(jsonConfigResourceManager::addOrUpdate);
-	}
-
-	/**
-	 * Returns the TypeScript repository base directory.
-	 * 
-	 * @return the TypeScript repository base directory.
-	 * @throws IOException
-	 */
-	public static File getTypeScriptRepositoryBaseDir() throws IOException {
-		return FileLocator.getBundleFile(Platform.getBundle("ts.repository"));
 	}
 
 	@Override
