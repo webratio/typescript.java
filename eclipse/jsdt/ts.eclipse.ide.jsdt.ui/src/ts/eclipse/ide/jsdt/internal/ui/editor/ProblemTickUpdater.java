@@ -6,13 +6,13 @@ import java.util.Set;
 import org.eclipse.core.resources.IMarker;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.runtime.CoreException;
-import org.eclipse.swt.graphics.Image;
 import org.eclipse.ui.IEditorInput;
 
 import ts.eclipse.ide.core.TypeScriptCorePlugin;
 import ts.eclipse.ide.core.resources.problems.IProblemChangeListener;
 import ts.eclipse.ide.jsdt.internal.ui.JSDTTypeScriptUIImages;
 import ts.eclipse.ide.jsdt.internal.ui.JSDTTypeScriptUIPlugin;
+import ts.utils.FileUtils;
 
 final class ProblemTickUpdater {
 
@@ -69,17 +69,17 @@ final class ProblemTickUpdater {
         }
 
 		// Prepare the image
+		JSDTTypeScriptUIImages image;
+		boolean isJs = resource.getLocation().getFileExtension().equals(FileUtils.JS_EXTENSION);
+		if (severity == IMarker.SEVERITY_ERROR) {
+			image = isJs ? JSDTTypeScriptUIImages.JSFILE_W_ERROR : JSDTTypeScriptUIImages.TSFILE_W_ERROR;
+		} else if (severity == IMarker.SEVERITY_WARNING) {
+			image = isJs ? JSDTTypeScriptUIImages.JSFILE_W_WARNING : JSDTTypeScriptUIImages.TSFILE_W_WARNING;
+		} else {
+			image = isJs ? JSDTTypeScriptUIImages.JSFILE : JSDTTypeScriptUIImages.TSFILE;
+		}
 
-        Image image;
-        if (severity == IMarker.SEVERITY_ERROR) {
-			image = JSDTTypeScriptUIImages.TSFILE_W_ERROR.get();
-        } else if (severity == IMarker.SEVERITY_WARNING) {
-			image = JSDTTypeScriptUIImages.TSFILE_W_WARNING.get();
-        } else {
-			image = JSDTTypeScriptUIImages.TSFILE.get();
-        }
-
-        editor.updateTitleImage(image);
+		editor.updateTitleImage(image.get());
     }
 
 }

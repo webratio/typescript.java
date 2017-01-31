@@ -20,6 +20,12 @@ public enum JSDTTypeScriptUIImages {
 	
 	TSFILE_W_WARNING(TSFILE, null, null, getSharedImageDescriptor(ISharedImages.IMG_DEC_FIELD_WARNING), null),
 	
+	JSFILE("icons/full/obj16/js.png"),
+
+	JSFILE_W_ERROR(JSFILE, null, null, getSharedImageDescriptor(ISharedImages.IMG_DEC_FIELD_ERROR), null),
+
+	JSFILE_W_WARNING(JSFILE, null, null, getSharedImageDescriptor(ISharedImages.IMG_DEC_FIELD_WARNING), null),
+
 	;
 	
 	private JSDTTypeScriptUIImages(String path) {
