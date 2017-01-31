@@ -56,6 +56,7 @@ import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.jface.viewers.SelectionChangedEvent;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.StyledText;
+import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.ui.IEditorInput;
 import org.eclipse.ui.IWindowListener;
@@ -182,6 +183,13 @@ public class TypeScriptEditor extends JavaScriptLightWeightEditor implements IEd
 	 */
 	private TypeScriptContentOutlinePage contentOutlinePage;
 
+	private final ProblemTickUpdater problemTickUpdater;
+
+	public TypeScriptEditor() {
+		super();
+		this.problemTickUpdater = new ProblemTickUpdater(this);
+	}
+
 	protected ActionGroup getActionGroup() {
 		return fActionGroups;
 	}
@@ -291,6 +299,8 @@ public class TypeScriptEditor extends JavaScriptLightWeightEditor implements IEd
 	public void dispose() {
 		super.dispose();
 
+		problemTickUpdater.dispose();
+
 		if (fActionGroups != null) {
 			fActionGroups.dispose();
 			fActionGroups = null;
@@ -306,6 +316,10 @@ public class TypeScriptEditor extends JavaScriptLightWeightEditor implements IEd
 			PlatformUI.getWorkbench().removeWindowListener(fActivationListener);
 			fActivationListener = null;
 		}
+	}
+
+	void updateTitleImage(Image titleImage) {
+		setTitleImage(titleImage);
 	}
 
 	@Override
@@ -856,6 +870,7 @@ public class TypeScriptEditor extends JavaScriptLightWeightEditor implements IEd
 	@Override
 	protected void doSetInput(IEditorInput input) throws CoreException {
 		super.doSetInput(input);
+		problemTickUpdater.update();
 		configureToggleCommentAction();
 		// try {
 		// //IDocument document = getSourceViewer().getDocument();
