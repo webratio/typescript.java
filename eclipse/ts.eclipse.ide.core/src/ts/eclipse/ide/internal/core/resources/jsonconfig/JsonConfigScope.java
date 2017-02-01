@@ -316,10 +316,12 @@ public final class JsonConfigScope {
 		private final boolean matchContainers; // null if just the base path
 
 		ResSet(IPath basePath, GlobPattern descendantGlob, boolean matchContainers) {
-			IPath leadingFixedPath = descendantGlob.getLeadingFixedPath();
-			if (leadingFixedPath != null) {
-				basePath = basePath.append(leadingFixedPath);
-				descendantGlob = descendantGlob.withoutLeadingFixedPath();
+			if (descendantGlob != null) {
+				IPath leadingFixedPath = descendantGlob.getLeadingFixedPath();
+				if (leadingFixedPath != null) {
+					basePath = basePath.append(leadingFixedPath);
+					descendantGlob = descendantGlob.withoutLeadingFixedPath();
+				}
 			}
 
 			this.basePath = basePath;
