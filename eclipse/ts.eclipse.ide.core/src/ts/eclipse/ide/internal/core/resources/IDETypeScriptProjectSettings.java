@@ -51,7 +51,7 @@ public class IDETypeScriptProjectSettings extends AbstractTypeScriptSettings imp
 		this.tsProject = tsProject;
 		// Fix embedded TypeScript id preference
 		// See https://github.com/angelozerr/typescript.java/issues/121
-		TypeScriptCorePreferenceInitializer.fixEmbeddedTypeScriptIdPreference(getProjectPreferences());
+		TypeScriptCorePreferenceInitializer.fixEmbeddedPreference(getProjectPreferences());
 	}
 
 	/**
@@ -65,6 +65,17 @@ public class IDETypeScriptProjectSettings extends AbstractTypeScriptSettings imp
 	@Override
 	public boolean isTraceOnConsole() {
 		return super.getBooleanPreferencesValue(TypeScriptCorePreferenceConstants.TSSERVER_TRACE_ON_CONSOLE, false);
+	}
+
+	@Override
+	public boolean isEnableTelemetry() {
+		return super.getBooleanPreferencesValue(TypeScriptCorePreferenceConstants.INSTALL_TYPES_ENABLE_TELEMETRY,
+				false);
+	}
+
+	@Override
+	public boolean isDisableAutomaticTypingAcquisition() {
+		return super.getBooleanPreferencesValue(TypeScriptCorePreferenceConstants.INSTALL_TYPES_DISABLE_ATA, false);
 	}
 
 	@Override
@@ -157,20 +168,30 @@ public class IDETypeScriptProjectSettings extends AbstractTypeScriptSettings imp
 		if (isFormatPreferencesChanged(event)) {
 			this.formatOptions = null;
 		} else if (isNodejsPreferencesChanged(event)) {
-			getTypeScriptProject().disposeServer();
-			getTypeScriptProject().disposeCompiler();
 			IIDETypeScriptProject tsProject = getTypeScriptProject();
-			IDEResourcesManager.getInstance().fireTypeScriptVersionChanged(tsProject, null, getNodeVersion());
+			if (tsProject != null) {
+				tsProject.disposeServer();
+				tsProject.disposeCompiler();
+				IDEResourcesManager.getInstance().fireTypeScriptVersionChanged(tsProject, null, getNodeVersion());
+			}
 		} else if (isTypeScriptRuntimePreferencesChanged(event)) {
-			tsProject.disposeCompiler();
-			tsProject.disposeServer();
 			IIDETypeScriptProject tsProject = getTypeScriptProject();
-			IDEResourcesManager.getInstance().fireTypeScriptVersionChanged(tsProject, null, getTypeScriptVersion());
+			if (tsProject != null) {
+				tsProject.disposeCompiler();
+				tsProject.disposeServer();
+				IDEResourcesManager.getInstance().fireTypeScriptVersionChanged(tsProject, null, getTypeScriptVersion());
+			}
 		} else if (isTypeScriptBuildPathPreferencesChanged(event) && !updatingBuildPath) {
 			getTypeScriptProject().disposeBuildPath();
 		} else if (isTslintPreferencesChanged(event)) {
 			this.tslintStrategy = null;
 			getTypeScriptProject().disposeTslint();
+		} else if (isInstallTypesPreferencesChanged(event)) {
+			IIDETypeScriptProject tsProject = getTypeScriptProject();
+			if (tsProject != null) {
+				tsProject.disposeCompiler();
+				tsProject.disposeServer();
+			}
 		}
 	}
 
@@ -217,6 +238,11 @@ public class IDETypeScriptProjectSettings extends AbstractTypeScriptSettings imp
 				|| TypeScriptCorePreferenceConstants.TSLINT_USE_EMBEDDED_TYPESCRIPT.equals(event.getKey())
 				|| TypeScriptCorePreferenceConstants.TSLINT_EMBEDDED_TYPESCRIPT_ID.equals(event.getKey())
 				|| TypeScriptCorePreferenceConstants.TSLINT_INSTALLED_TYPESCRIPT_PATH.equals(event.getKey());
+	}
+
+	private boolean isInstallTypesPreferencesChanged(PreferenceChangeEvent event) {
+		return TypeScriptCorePreferenceConstants.INSTALL_TYPES_ENABLE_TELEMETRY.equals(event.getKey()) ||
+				TypeScriptCorePreferenceConstants.INSTALL_TYPES_DISABLE_ATA.equals(event.getKey());
 	}
 
 	private boolean isTypeScriptBuildPathPreferencesChanged(PreferenceChangeEvent event) {

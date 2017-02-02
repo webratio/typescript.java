@@ -1,3 +1,13 @@
+/**
+ *  Copyright (c) 2015-2016 Angelo ZERR.
+ *  All rights reserved. This program and the accompanying materials
+ *  are made available under the terms of the Eclipse Public License v1.0
+ *  which accompanies this distribution, and is available at
+ *  http://www.eclipse.org/legal/epl-v10.html
+ *
+ *  Contributors:
+ *  Lorenzo Dalla Vecchia <lorenzo.dallavecchia@webratio.com> - initial API and implementation
+ */
 package ts.eclipse.ide.jsdt.internal.ui;
 
 import org.eclipse.jface.resource.ImageDescriptor;
@@ -13,13 +23,13 @@ import org.osgi.framework.Bundle;
  * Image registry for JSDT TypeScript UI plugin.
  */
 public enum JSDTTypeScriptUIImages {
-	
+
 	TSFILE("icons/full/obj16/ts.png"),
 
 	TSFILE_W_ERROR(TSFILE, null, null, getSharedImageDescriptor(ISharedImages.IMG_DEC_FIELD_ERROR), null),
-	
+
 	TSFILE_W_WARNING(TSFILE, null, null, getSharedImageDescriptor(ISharedImages.IMG_DEC_FIELD_WARNING), null),
-	
+
 	JSFILE("icons/full/obj16/js.png"),
 
 	JSFILE_W_ERROR(JSFILE, null, null, getSharedImageDescriptor(ISharedImages.IMG_DEC_FIELD_ERROR), null),
@@ -27,14 +37,15 @@ public enum JSDTTypeScriptUIImages {
 	JSFILE_W_WARNING(JSFILE, null, null, getSharedImageDescriptor(ISharedImages.IMG_DEC_FIELD_WARNING), null),
 
 	;
-	
+
 	private JSDTTypeScriptUIImages(String path) {
 		Bundle bundle = JSDTTypeScriptUIPlugin.getDefault().getBundle();
 		ImageDescriptor descr = AbstractUIPlugin.imageDescriptorFromPlugin(bundle.getSymbolicName(), path);
 		JFaceResources.getImageRegistry().put(key(), descr);
 	}
 
-	private JSDTTypeScriptUIImages(JSDTTypeScriptUIImages base, ImageDescriptor tlOverlay, ImageDescriptor trOverlay, ImageDescriptor blOverlay, ImageDescriptor brOverlay) {
+	private JSDTTypeScriptUIImages(JSDTTypeScriptUIImages base, ImageDescriptor tlOverlay, ImageDescriptor trOverlay,
+			ImageDescriptor blOverlay, ImageDescriptor brOverlay) {
 		ImageDescriptor descr = new DecorationOverlayIcon(base.get(),
 				new ImageDescriptor[] { tlOverlay, trOverlay, blOverlay, brOverlay });
 		JFaceResources.getImageRegistry().put(key(), descr);

@@ -10,19 +10,8 @@
  */
 package ts.eclipse.ide.internal.core.preferences;
 
-import java.io.File;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
-
-import org.eclipse.core.runtime.FileLocator;
-import org.eclipse.core.runtime.IConfigurationElement;
-import org.eclipse.core.runtime.IExtensionRegistry;
-import org.eclipse.core.runtime.Platform;
 import org.eclipse.core.runtime.preferences.AbstractPreferenceInitializer;
 import org.eclipse.core.runtime.preferences.IEclipsePreferences;
-import org.osgi.framework.Version;
 import org.osgi.service.prefs.BackingStoreException;
 
 import ts.cmd.tslint.TslintSettingsStrategy;
@@ -42,8 +31,6 @@ import ts.repository.ITypeScriptRepository;
  */
 public class TypeScriptCorePreferenceInitializer extends AbstractPreferenceInitializer {
 
-	private static final String EXTENSION_TYPESCRIPT_REPOSITORIES = "typeScriptRepositories";
-
 	@Override
 	public void initializeDefaultPreferences() {
 		IEclipsePreferences node = WorkspaceTypeScriptSettingsHelper
@@ -54,21 +41,20 @@ public class TypeScriptCorePreferenceInitializer extends AbstractPreferenceIniti
 		initializeNodejsPreferences(node);
 
 		try {
-
-			// Create repositories and choose the newest one as default
-			List<ITypeScriptRepository> repositories = createContributedTypeScriptRepositories();
-			ITypeScriptRepository defaultRepository = !repositories.isEmpty() ? repositories.get(0) : null;
-			if (defaultRepository != null) {
-
-				// Initialize tsc preferences
-				initializeTypeScriptRuntimePreferences(node, defaultRepository);
-				// Initialize tsserver preferences
-				initializeTsserverPreferences(node, defaultRepository);
-				// Initialize tslint preferences
-				initializeTslintPreferences(node, defaultRepository);
-			} else {
+			ITypeScriptRepository defaultRepository = TypeScriptCorePlugin.getTypeScriptRepositoryManager()
+					.getDefaultRepository();
+			if (defaultRepository == null) {
 				Trace.trace(Trace.WARNING, "No default TypeScript repository is available");
 			}
+
+			// Initialize TypeScript runtime preferences
+			initializeTypeScriptRuntimePreferences(node, defaultRepository);
+			// Initialize tsserver preferences
+			initializeTsserverPreferences(node, defaultRepository);
+			// Initialize install @types preferences
+			initializeInstallTypesPreferences(node);
+			// Initialize tslint preferences
+			initializeTslintPreferences(node, defaultRepository);
 		} catch (Exception e) {
 			Trace.trace(Trace.SEVERE, "Error while getting the default TypeScript repository", e);
 		}
@@ -86,7 +72,7 @@ public class TypeScriptCorePreferenceInitializer extends AbstractPreferenceIniti
 
 		// Fix embedded TypeScript id preference
 		// See https://github.com/angelozerr/typescript.java/issues/121
-		fixEmbeddedTypeScriptIdPreference(
+		fixEmbeddedPreference(
 				WorkspaceTypeScriptSettingsHelper.getWorkspacePreferences(TypeScriptCorePlugin.PLUGIN_ID));
 	}
 
@@ -120,13 +106,22 @@ public class TypeScriptCorePreferenceInitializer extends AbstractPreferenceIniti
 
 	private void initializeTypeScriptRuntimePreferences(IEclipsePreferences node,
 			ITypeScriptRepository defaultRepository) {
-		node.put(TypeScriptCorePreferenceConstants.EMBEDDED_TYPESCRIPT_ID, defaultRepository.getName());
-		node.putBoolean(TypeScriptCorePreferenceConstants.USE_EMBEDDED_TYPESCRIPT, true);
+		if (defaultRepository != null) {
+			node.put(TypeScriptCorePreferenceConstants.EMBEDDED_TYPESCRIPT_ID, defaultRepository.getName());
+			node.putBoolean(TypeScriptCorePreferenceConstants.USE_EMBEDDED_TYPESCRIPT, true);
+		} else {
+			node.putBoolean(TypeScriptCorePreferenceConstants.USE_EMBEDDED_TYPESCRIPT, false);
+		}
 		node.put(TypeScriptCorePreferenceConstants.INSTALLED_TYPESCRIPT_PATH, "");
 	}
 
 	private void initializeTsserverPreferences(IEclipsePreferences node, ITypeScriptRepository defaultRepository) {
 		node.putBoolean(TypeScriptCorePreferenceConstants.TSSERVER_TRACE_ON_CONSOLE, false);
+	}
+
+	private void initializeInstallTypesPreferences(IEclipsePreferences node) {
+		node.putBoolean(TypeScriptCorePreferenceConstants.INSTALL_TYPES_ENABLE_TELEMETRY, false);
+		node.putBoolean(TypeScriptCorePreferenceConstants.INSTALL_TYPES_DISABLE_ATA, false);
 	}
 
 	private void initializeSalsa(IEclipsePreferences node) {
@@ -141,8 +136,12 @@ public class TypeScriptCorePreferenceInitializer extends AbstractPreferenceIniti
 	private void initializeTslintPreferences(IEclipsePreferences node, ITypeScriptRepository defaultRepository) {
 		node.put(TypeScriptCorePreferenceConstants.TSLINT_STRATEGY, TslintSettingsStrategy.DisableTslint.name());
 		node.put(TypeScriptCorePreferenceConstants.TSLINT_USE_CUSTOM_TSLINTJSON_FILE, "");
-		node.put(TypeScriptCorePreferenceConstants.TSLINT_EMBEDDED_TYPESCRIPT_ID, defaultRepository.getName());
-		node.putBoolean(TypeScriptCorePreferenceConstants.TSLINT_USE_EMBEDDED_TYPESCRIPT, true);
+		if (defaultRepository != null) {
+			node.put(TypeScriptCorePreferenceConstants.TSLINT_EMBEDDED_TYPESCRIPT_ID, defaultRepository.getName());
+			node.putBoolean(TypeScriptCorePreferenceConstants.TSLINT_USE_EMBEDDED_TYPESCRIPT, true);
+		} else {
+			node.putBoolean(TypeScriptCorePreferenceConstants.TSLINT_USE_EMBEDDED_TYPESCRIPT, false);
+		}
 		node.put(TypeScriptCorePreferenceConstants.TSLINT_INSTALLED_TYPESCRIPT_PATH, "");
 	}
 
@@ -180,69 +179,35 @@ public class TypeScriptCorePreferenceInitializer extends AbstractPreferenceIniti
 	}
 
 	/**
-	 * Fix the embeddedTypeScriptId preference if needed with default
-	 * embeddedTypeScriptId.
+	 * Fix the embedded TypeScript runtime ande node.js preference if needed.
 	 * 
 	 * @param preferences
 	 * @see https://github.com/angelozerr/typescript.java/issues/121
 	 */
-	public static void fixEmbeddedTypeScriptIdPreference(IEclipsePreferences preferences) {
+	public static void fixEmbeddedPreference(IEclipsePreferences preferences) {
+		boolean refresh = false;
+		// Fix embedded TypeScript runtime if needed
 		String embeddedTypeScriptId = preferences.get(TypeScriptCorePreferenceConstants.EMBEDDED_TYPESCRIPT_ID, null);
 		if (embeddedTypeScriptId != null
 				&& TypeScriptCorePlugin.getTypeScriptRepositoryManager().getRepository(embeddedTypeScriptId) == null) {
 			preferences.put(TypeScriptCorePreferenceConstants.EMBEDDED_TYPESCRIPT_ID,
 					TypeScriptCorePlugin.getTypeScriptRepositoryManager().getDefaultRepository().getName());
+			refresh = true;
+		}
+		// Fix embedded node.js if needed
+		String embeddedNode = preferences.get(TypeScriptCorePreferenceConstants.NODEJS_EMBEDDED_ID, null);
+		if (embeddedNode != null
+				&& TypeScriptCorePlugin.getNodejsInstallManager().findNodejsInstall(embeddedNode) == null) {
+			if (useBundledNodeJsEmbedded(preferences)) {
+				refresh = true;
+			}
+		}
+		if (refresh) {
 			try {
 				preferences.flush();
 			} catch (BackingStoreException e) {
-				Trace.trace(Trace.SEVERE, "Error while fixing embeddedTypeScriptId preference", e);
+				Trace.trace(Trace.SEVERE, "Error while fixing embedded TypeScript runtime and node.js preference", e);
 			}
 		}
-	}
-
-	private static List<ITypeScriptRepository> createContributedTypeScriptRepositories() {
-
-		// loop over contributed TypeScript repositories, collecting them in a
-		// list
-		List<ITypeScriptRepository> repositories = new ArrayList<ITypeScriptRepository>();
-		IExtensionRegistry registry = Platform.getExtensionRegistry();
-		for (IConfigurationElement cf : registry.getConfigurationElementsFor(TypeScriptCorePlugin.PLUGIN_ID,
-				EXTENSION_TYPESCRIPT_REPOSITORIES)) {
-			String bundleId = cf.getNamespaceIdentifier();
-			try {
-				File bundleDir = FileLocator.getBundleFile(Platform.getBundle(bundleId));
-				if (!bundleDir.isDirectory()) {
-					throw new RuntimeException("Bundle location " + bundleDir
-							+ " cannot contribute a TypeScript repository because it is not a directory");
-				}
-				File repositoryDir = new File(bundleDir, cf.getAttribute("baseDir"));
-				repositories.add(
-						TypeScriptCorePlugin.getTypeScriptRepositoryManager().createDefaultRepository(repositoryDir));
-			} catch (Exception e) {
-				Trace.trace(Trace.SEVERE, "Error while procesing TypeScript repository contributed by " + bundleId, e);
-			}
-		}
-
-		// sort repositories by version in decreasing order
-		Collections.sort(repositories, new Comparator<ITypeScriptRepository>() {
-
-			@Override
-			public int compare(ITypeScriptRepository repo1, ITypeScriptRepository repo2) {
-				Version v1 = extractVerion(repo1);
-				Version v2 = extractVerion(repo2);
-				return v2.compareTo(v1);
-			}
-
-			private Version extractVerion(ITypeScriptRepository repo) {
-				try {
-					return Version.parseVersion(repo.getTypesScriptVersion());
-				} catch (IllegalArgumentException e) {
-					return Version.emptyVersion;
-				}
-			}
-
-		});
-
-		return repositories;
 	}
 }
