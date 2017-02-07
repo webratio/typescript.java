@@ -11,6 +11,9 @@
 package ts.eclipse.ide.core.utils;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
@@ -19,6 +22,7 @@ import org.eclipse.core.filebuffers.ITextFileBuffer;
 import org.eclipse.core.filebuffers.ITextFileBufferManager;
 import org.eclipse.core.filebuffers.LocationKind;
 import org.eclipse.core.resources.ICommand;
+import org.eclipse.core.resources.IContainer;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IMarker;
 import org.eclipse.core.resources.IProject;
@@ -241,12 +245,47 @@ public class TypeScriptResourceUtil {
 		JsonConfigScope scope = JsonConfigResourcesManager.getInstance().getDefinedScope(tsconfig.getTsconfigFile());
 
 		// Refresh emitted files
-		for (IFile file : scope.getSpecificEmittedFiles(tsFile)) {
+		Collection<IFile> specificEmittedFiles = scope.getSpecificEmittedFiles(tsFile);
+		for (IFile file : specificEmittedFiles) {
 			refreshAndCollectEmittedFile(file.getFullPath(), refresh, emittedFiles);
 		}
+		markDerivedContainers(specificEmittedFiles);
 		// Refresh ts file
 		if (refresh) {
 			refreshFile(tsFile, false);
+		}
+	}
+
+	private static void markDerivedContainers(Collection<? extends IResource> resources) throws CoreException {
+
+		// Track all containers
+		Set<IContainer> containers = new HashSet<>();
+		for (IResource resource : resources) {
+			if (resource.isAccessible()) {
+				if (resource instanceof IContainer) {
+					resource.setDerived(true, null);
+				}
+				IContainer parent = resource.getParent();
+				if (!(parent instanceof IProject)) {
+					containers.add(parent);
+				}
+			}
+		}
+
+		// Keep only containers that contain only derived resources
+		containersLoop: for (Iterator<IContainer> iter = containers.iterator(); iter.hasNext();) {
+			IContainer container = iter.next();
+			for (IResource resource : container.members()) {
+				if (!resource.isDerived()) {
+					iter.remove();
+					continue containersLoop;
+				}
+			}
+		}
+
+		// Mark containers that are inferred to be derived
+		if (!containers.isEmpty()) {
+			markDerivedContainers(containers); // recurse
 		}
 	}
 
