@@ -19,7 +19,6 @@ import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.runtime.CoreException;
 
-import ts.eclipse.ide.core.preferences.TypeScriptCorePreferenceConstants;
 import ts.eclipse.ide.core.resources.IIDETypeScriptProject;
 import ts.eclipse.ide.core.resources.ITypeScriptElementChangedListener;
 import ts.eclipse.ide.core.resources.UseSalsa;
@@ -105,7 +104,10 @@ public class IDEResourcesManager implements ITypeScriptResourcesManagerDelegate 
 		// check that TypeScript project have build path.
 		try {
 			IDETypeScriptProject tsProject = getTypeScriptProject(project, false);
-			return tsProject != null && tsProject.getTypeScriptBuildPath().hasRootContainers();
+			if (tsProject != null) {
+				tsProject.disposeBuildPath(); // ensure latest state
+				return tsProject.getTypeScriptBuildPath().hasRootContainers();
+			}
 		} catch (Exception e) {
 			Trace.trace(Trace.SEVERE, "Error while getting TypeScript project", e);
 		}

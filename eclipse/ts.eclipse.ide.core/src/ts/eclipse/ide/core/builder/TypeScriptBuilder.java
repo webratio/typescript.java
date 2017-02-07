@@ -172,10 +172,59 @@ public class TypeScriptBuilder extends IncrementalProjectBuilder {
 			IProgressMonitor monitor)
 			throws CoreException {
 
+		final List<IFile> invalidatedTsconfigFiles = new ArrayList<>();
+		final IResourceDeltaVisitor tsconfigDeltaVisitor = new IResourceDeltaVisitor() {
+
+			@Override
+			public boolean visit(IResourceDelta delta) throws CoreException {
+				IResource resource = delta.getResource();
+				if (resource == null) {
+					return false;
+				}
+				switch (resource.getType()) {
+				case IResource.ROOT:
+					return true;
+				case IResource.PROJECT:
+				case IResource.FOLDER:
+					return true;
+				case IResource.FILE:
+					int kind = delta.getKind();
+					switch (kind) {
+					case IResourceDelta.ADDED:
+					case IResourceDelta.CHANGED:
+						if (TypeScriptResourceUtil.isTsConfigFile(resource)) {
+							JsonConfigResourcesManager.getInstance().addOrUpdate((IFile) resource);
+							invalidatedTsconfigFiles.add((IFile) resource);
+						}
+						break;
+					case IResourceDelta.REMOVED:
+						if (TypeScriptResourceUtil.isTsConfigFile(resource)) {
+							JsonConfigResourcesManager.getInstance().remove((IFile) resource);
+							invalidatedTsconfigFiles.add((IFile) resource);
+						}
+						break;
+					}
+					return false;
+				}
+				return false;
+			}
+		};
+		for (IResourceDelta delta : deltas) {
+			delta.accept(tsconfigDeltaVisitor);
+		}
+
+		// If a tsconfig.json in this project changed, back off and do a full
+		// build instead
+		for (IFile tsconfigFile : invalidatedTsconfigFiles) {
+			if (tsconfigFile.getProject().equals(getProject())) {
+				fullBuild(tsProject, monitor);
+				return;
+			}
+		}
+
 		final ITypeScriptBuildPath buildPath = tsProject.getTypeScriptBuildPath();
 		final Map<ITsconfigBuildPath, List<IFile>> tsFilesToCompile = new HashMap<ITsconfigBuildPath, List<IFile>>();
 		final Map<ITsconfigBuildPath, List<IFile>> tsFilesToDelete = new HashMap<ITsconfigBuildPath, List<IFile>>();
-		final List<IFile> invalidatedTsconfigFiles = new ArrayList<>();
 		final IResourceDeltaVisitor deltaVisitor = new IResourceDeltaVisitor() {
 
 			private int lastScopeFolderDepth = -1;
@@ -210,17 +259,11 @@ public class TypeScriptBuilder extends IncrementalProjectBuilder {
 					case IResourceDelta.CHANGED:
 						if (TypeScriptResourceUtil.isTsOrTsxFile(resource)) {
 							addTsFile(buildPath, tsFilesToCompile, resource);
-						} else if (TypeScriptResourceUtil.isTsConfigFile(resource)) {
-							JsonConfigResourcesManager.getInstance().addOrUpdate((IFile) resource);
-							invalidatedTsconfigFiles.add((IFile) resource);
 						}
 						break;
 					case IResourceDelta.REMOVED:
 						if (TypeScriptResourceUtil.isTsOrTsxFile(resource)) {
 							addTsFile(buildPath, tsFilesToDelete, resource);
-						} else if (TypeScriptResourceUtil.isTsConfigFile(resource)) {
-							JsonConfigResourcesManager.getInstance().remove((IFile) resource);
-							invalidatedTsconfigFiles.add((IFile) resource);
 						}
 						break;
 					}
@@ -244,15 +287,6 @@ public class TypeScriptBuilder extends IncrementalProjectBuilder {
 		};
 		for (IResourceDelta delta : deltas) {
 			delta.accept(deltaVisitor);
-		}
-
-		// If a tsconfig.json in this project changed, back off and do a full
-		// build instead
-		for (IFile tsconfigFile : invalidatedTsconfigFiles) {
-			if (tsconfigFile.getProject().equals(getProject())) {
-				fullBuild(tsProject, monitor);
-				return;
-			}
 		}
 
 		// Compile ts files *.ts
