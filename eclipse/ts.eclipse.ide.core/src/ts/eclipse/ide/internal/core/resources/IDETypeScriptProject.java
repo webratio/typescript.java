@@ -65,9 +65,10 @@ public class IDETypeScriptProject extends TypeScriptProject implements IIDETypeS
 			// Remove cache of tsconfig.json Pojo
 			JsonConfigResourcesManager.getInstance().remove(file);
 			// Update build path
-			ITypeScriptBuildPath buildPath = getTypeScriptBuildPath().copy();
-			buildPath.removeEntry(file);
-			buildPath.save();
+			// ITypeScriptBuildPath buildPath = getTypeScriptBuildPath().copy();
+			// buildPath.removeEntry(file);
+			// buildPath.save();
+			disposeBuildPath();
 		}
 
 		@Override
@@ -81,12 +82,13 @@ public class IDETypeScriptProject extends TypeScriptProject implements IIDETypeS
 			// When new project is imported, there are none build path
 			// check if the tsconfig.json which is added is a default build path
 			// (like tsconfig.json or src/tsconfig.json)
-			if (!getTypeScriptBuildPath().hasRootContainers()) {
-				ITypeScriptBuildPath tempBuildPath = createBuildPath();
-				if (tempBuildPath.hasRootContainers()) {
-					buildPath = tempBuildPath;
-				}
-			}
+			// if (!getTypeScriptBuildPath().hasRootContainers()) {
+			// ITypeScriptBuildPath tempBuildPath = createBuildPath();
+			// if (tempBuildPath.hasRootContainers()) {
+			// buildPath = tempBuildPath;
+			// }
+			// }
+			disposeBuildPath();
 		}
 
 		@Override
