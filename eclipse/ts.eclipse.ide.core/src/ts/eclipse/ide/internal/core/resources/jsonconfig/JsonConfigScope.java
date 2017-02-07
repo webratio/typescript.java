@@ -9,12 +9,14 @@ import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+import org.eclipse.core.filesystem.URIUtil;
 import org.eclipse.core.resources.IContainer;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.resources.IWorkspaceRoot;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.IPath;
+import org.eclipse.core.runtime.Path;
 
 import ts.cmd.tsc.CompilerOptions;
 import ts.eclipse.ide.core.resources.jsconfig.IDETsconfigJson;
@@ -63,11 +65,11 @@ public final class JsonConfigScope {
 		private final List<ResSet> included = new ArrayList<>();
 		private final List<ResSet> excluded = new ArrayList<>();
 		private final List<ResSet> emitted = new ArrayList<>();
-		private IPath sourceBasePath;
+		private IPath sourceBaseLoc;
 		private String singleOutputFileName; // null if multiple output
-		private IPath jsOutputBasePath;
-		private IPath mapOutputBasePath;
-		private IPath declarationOutputBasePath;
+		private IPath jsOutputBaseLoc;
+		private IPath mapOutputBaseLoc;
+		private IPath declarationOutputBaseLoc;
 
 		Builder(IDETsconfigJson tsconfig) {
 			this.tsconfig = tsconfig;
@@ -76,58 +78,58 @@ public final class JsonConfigScope {
 		void addOutFileEmitted(String outFileStringPath) {
 			CompilerOptions compilerOptions = tsconfig.getCompilerOptions();
 
-			IPath outFilePath = getPath(outFileStringPath);
-			this.emitted.add(createSingleFileResSet(outFilePath));
-			this.jsOutputBasePath = outFilePath.removeLastSegments(1);
-			this.singleOutputFileName = outFilePath.lastSegment();
+			IPath outFileLoc = getLocation(outFileStringPath);
+			this.emitted.add(createSingleFileResSet(outFileLoc));
+			this.jsOutputBaseLoc = outFileLoc.removeLastSegments(1);
+			this.singleOutputFileName = outFileLoc.lastSegment();
 
 			if (compilerOptions != null && compilerOptions.isSourceMap()) {
-				IPath outMapFilePath = outFilePath.addFileExtension(FileUtils.MAP_EXTENSION);
-				this.emitted.add(createSingleFileResSet(outMapFilePath));
-				this.mapOutputBasePath = outMapFilePath.removeLastSegments(1);
+				IPath outMapFileLoc = outFileLoc.addFileExtension(FileUtils.MAP_EXTENSION);
+				this.emitted.add(createSingleFileResSet(outMapFileLoc));
+				this.mapOutputBaseLoc = outMapFileLoc.removeLastSegments(1);
 			} else {
-				this.mapOutputBasePath = null;
+				this.mapOutputBaseLoc = null;
 			}
 
 			if (compilerOptions != null && compilerOptions.isDeclaration()) {
-				IPath outDeclarationFilePath = outFilePath;
-				if (FileUtils.JS_EXTENSION.equals(outFilePath.getFileExtension())) {
-					outDeclarationFilePath = outDeclarationFilePath.removeFileExtension();
+				IPath outDeclarationFileLoc = outFileLoc;
+				if (FileUtils.JS_EXTENSION.equals(outFileLoc.getFileExtension())) {
+					outDeclarationFileLoc = outDeclarationFileLoc.removeFileExtension();
 				}
-				outDeclarationFilePath.addFileExtension(FileUtils.D_TS_EXTENSION);
-				this.emitted.add(createSingleFileResSet(outDeclarationFilePath));
-				this.declarationOutputBasePath = outDeclarationFilePath.removeLastSegments(1);
+				outDeclarationFileLoc.addFileExtension(FileUtils.D_TS_EXTENSION);
+				this.emitted.add(createSingleFileResSet(outDeclarationFileLoc));
+				this.declarationOutputBaseLoc = outDeclarationFileLoc.removeLastSegments(1);
 			} else {
-				this.declarationOutputBasePath = null;
+				this.declarationOutputBaseLoc = null;
 			}
 		}
 
 		void addOutDirEmitted(String outDirStringPath) {
 			CompilerOptions compilerOptions = tsconfig.getCompilerOptions();
 
-			IPath outDirPath = getPath(outDirStringPath);
-			this.emitted.add(createTypedFileResSet(outDirPath, FileUtils.JS_EXTENSION));
-			this.jsOutputBasePath = outDirPath;
+			IPath outDirLoc = getLocation(outDirStringPath);
+			this.emitted.add(createTypedFileResSet(outDirLoc, FileUtils.JS_EXTENSION));
+			this.jsOutputBaseLoc = outDirLoc;
 			this.singleOutputFileName = null;
 
 			if (compilerOptions != null && compilerOptions.isSourceMap()) {
-				this.emitted.add(createTypedFileResSet(outDirPath, FileUtils.JS_MAP_EXTENSION));
-				this.mapOutputBasePath = outDirPath;
+				this.emitted.add(createTypedFileResSet(outDirLoc, FileUtils.JS_MAP_EXTENSION));
+				this.mapOutputBaseLoc = outDirLoc;
 			} else {
-				this.mapOutputBasePath = null;
+				this.mapOutputBaseLoc = null;
 			}
 
 			if (compilerOptions != null && compilerOptions.isDeclaration()) {
 				if (!StringUtils.isEmpty(compilerOptions.getDeclarationDir())) {
-					IPath declarationDirPath = getPath(compilerOptions.getDeclarationDir());
-					this.emitted.add(createTypedFileResSet(declarationDirPath, FileUtils.D_TS_EXTENSION));
-					this.declarationOutputBasePath = declarationDirPath;
+					IPath declarationDirLoc = getLocation(compilerOptions.getDeclarationDir());
+					this.emitted.add(createTypedFileResSet(declarationDirLoc, FileUtils.D_TS_EXTENSION));
+					this.declarationOutputBaseLoc = declarationDirLoc;
 				} else {
-					this.emitted.add(createTypedFileResSet(outDirPath, FileUtils.D_TS_EXTENSION));
-					this.declarationOutputBasePath = outDirPath;
+					this.emitted.add(createTypedFileResSet(outDirLoc, FileUtils.D_TS_EXTENSION));
+					this.declarationOutputBaseLoc = outDirLoc;
 				}
 			} else {
-				this.declarationOutputBasePath = null;
+				this.declarationOutputBaseLoc = null;
 			}
 		}
 
@@ -139,23 +141,23 @@ public final class JsonConfigScope {
 			if (files != null || include != null) {
 				if (files != null) {
 					for (String filePathString : files) {
-						IPath filePath = getPath(filePathString);
-						this.alwaysIncluded.add(createSingleFileResSet(filePath));
+						IPath fileLoc = getLocation(filePathString);
+						this.alwaysIncluded.add(createSingleFileResSet(fileLoc));
 					}
 				}
 				if (include != null) {
 					for (String includeGlob : include) {
-						this.included.add(createResSet(getBasePath(), includeGlob, implicitExts));
+						this.included.add(createResSet(getBaseLocation(), includeGlob, implicitExts));
 					}
 				}
 			} else {
-				this.included.add(createResSet(getBasePath(), implicitExts));
+				this.included.add(createResSet(getBaseLocation(), implicitExts));
 			}
 
 			List<String> exclude = tsconfig.getDefaultOrDefinedExclude();
 			if (exclude != null) {
 				for (String excludeGlob : exclude) {
-					this.excluded.add(createResSet(getBasePath(), excludeGlob, null));
+					this.excluded.add(createResSet(getBaseLocation(), excludeGlob, null));
 				}
 			}
 		}
@@ -167,7 +169,7 @@ public final class JsonConfigScope {
 			if (compilerOptions != null) {
 				for (String pathKey : compilerOptions.getPathsKeys()) {
 					for (String pathGlob : compilerOptions.getPathsKeyValues(pathKey)) {
-						this.included.add(createFileResSet(getBasePath(), pathGlob, implicitExts));
+						this.included.add(createFileResSet(getBaseLocation(), pathGlob, implicitExts));
 					}
 				}
 			}
@@ -176,32 +178,32 @@ public final class JsonConfigScope {
 		void addTypesIncluded() {
 			CompilerOptions compilerOptions = tsconfig.getCompilerOptions();
 
-			List<IPath> rootPaths = new ArrayList<>();
+			List<IPath> rootLocs = new ArrayList<>();
 			if (compilerOptions != null && compilerOptions.getTypeRoots() != null) {
 				for (String typeRootString : compilerOptions.getTypeRoots()) {
-					rootPaths.add(getPath(typeRootString));
+					rootLocs.add(getLocation(typeRootString));
 				}
 			} else {
-				IPath currentPath = getBasePath();
+				IPath currentLoc = getBaseLocation();
 				while (true) {
-					rootPaths.add(currentPath.append("node_modules/@types"));
-					if (currentPath.segmentCount() <= 0) {
+					rootLocs.add(currentLoc.append("node_modules/@types"));
+					if (currentLoc.segmentCount() <= 0) {
 						break;
 					}
-					currentPath = currentPath.append("..");
+					currentLoc = currentLoc.append("..");
 				}
 			}
 
 			if (compilerOptions != null && compilerOptions.getTypes() != null) {
 				for (String typeName : compilerOptions.getTypes()) {
-					for (IPath rootPath : rootPaths) {
-						IPath typePath = rootPath.append(typeName);
-						this.included.add(createTypedFileResSet(typePath, FileUtils.D_TS_EXTENSION));
+					for (IPath rootLoc : rootLocs) {
+						IPath typeLoc = rootLoc.append(typeName);
+						this.included.add(createTypedFileResSet(typeLoc, FileUtils.D_TS_EXTENSION, true));
 					}
 				}
 			} else {
-				for (IPath rootPath : rootPaths) {
-					this.included.add(createTypedFileResSet(rootPath, FileUtils.D_TS_EXTENSION));
+				for (IPath rootLoc : rootLocs) {
+					this.included.add(createTypedFileResSet(rootLoc, FileUtils.D_TS_EXTENSION, true));
 				}
 			}
 		}
@@ -213,72 +215,83 @@ public final class JsonConfigScope {
 		}
 
 		JsonConfigScope build() {
-			this.sourceBasePath = computeSourceBasePath();
+			this.sourceBaseLoc = computeSourceBaseLocation();
 			return new JsonConfigScope(this);
 		}
 
-		private IPath computeSourceBasePath() {
+		private IPath computeSourceBaseLocation() {
 			CompilerOptions compilerOptions = tsconfig.getCompilerOptions();
 
 			// use specified root dir
 			if (compilerOptions != null && !StringUtils.isEmpty(compilerOptions.getRootDir())) {
-				return getPath(compilerOptions.getRootDir());
+				return getLocation(compilerOptions.getRootDir());
 			}
 
 			// compute common dir of included files
-			IPath commonRootPath = null;
+			IPath commonRootLoc = null;
 			for (ResSet resSet : included) {
-				IPath path = resSet.basePath;
-				if (commonRootPath == null) {
-					commonRootPath = path;
+				if (!resSet.isSource()) {
+					continue;
+				}
+				IPath path = resSet.baseLoc;
+				if (commonRootLoc == null) {
+					commonRootLoc = path;
 				} else {
 					IPath shorterPath, otherPath;
-					if (path.segmentCount() <= commonRootPath.segmentCount()) {
+					if (path.segmentCount() <= commonRootLoc.segmentCount()) {
 						shorterPath = path;
-						otherPath = commonRootPath;
+						otherPath = commonRootLoc;
 					} else {
-						shorterPath = commonRootPath;
+						shorterPath = commonRootLoc;
 						otherPath = path;
 					}
 					while (!shorterPath.isPrefixOf(otherPath)) {
 						shorterPath = shorterPath.removeLastSegments(1);
 					}
-					commonRootPath = shorterPath;
+					commonRootLoc = shorterPath;
 				}
 			}
-			if (commonRootPath != null) {
-				return commonRootPath;
+			if (commonRootLoc != null) {
+				return commonRootLoc;
 			}
 
-			return getBasePath();
+			return getBaseLocation();
 		}
 
-		private IPath getBasePath() {
-			return tsconfig.getTsconfigFile().getParent().getFullPath();
+		private IPath getBaseLocation() {
+			return tsconfig.getTsconfigFile().getParent().getLocation();
 		}
 
-		private IPath getPath(String pathString) {
-			return getBasePath().append(pathString);
+		private IPath getLocation(String pathString) {
+			IPath path = new Path(pathString);
+			if (path.isAbsolute()) {
+				return path;
+			}
+			return getBaseLocation().append(path);
 		}
 
-		private ResSet createSingleFileResSet(IPath filePath) {
-			return new ResSet(filePath, null, false);
+		private ResSet createSingleFileResSet(IPath fileLoc) {
+			return new ResSet(fileLoc, null, true, false);
 		}
 
-		private ResSet createTypedFileResSet(IPath basePath, String extension) {
-			return new ResSet(basePath, GlobPattern.parse("**/*." + extension), false);
+		private ResSet createTypedFileResSet(IPath baseLoc, String extension) {
+			return new ResSet(baseLoc, GlobPattern.parse("**/*." + extension), true, false);
 		}
 
-		private ResSet createFileResSet(IPath basePath, String descendantGlobString, ImplicitExtensions implicitExts) {
-			return new ResSet(basePath, GlobPattern.parse(descendantGlobString, implicitExts), false);
+		private ResSet createTypedFileResSet(IPath baseLoc, String extension, boolean noSource) {
+			return new ResSet(baseLoc, GlobPattern.parse("**/*." + extension), !noSource, false);
 		}
 
-		private ResSet createResSet(IPath basePath, ImplicitExtensions implicitExts) {
-			return new ResSet(basePath, GlobPattern.parse("**/*", implicitExts), true);
+		private ResSet createFileResSet(IPath baseLoc, String descendantGlobString, ImplicitExtensions implicitExts) {
+			return new ResSet(baseLoc, GlobPattern.parse(descendantGlobString, implicitExts), true, false);
 		}
 
-		private ResSet createResSet(IPath basePath, String descendantGlobString, ImplicitExtensions implicitExts) {
-			return new ResSet(basePath, GlobPattern.parse(descendantGlobString, implicitExts), true);
+		private ResSet createResSet(IPath baseLoc, ImplicitExtensions implicitExts) {
+			return new ResSet(baseLoc, GlobPattern.parse("**/*", implicitExts), true, true);
+		}
+
+		private ResSet createResSet(IPath baseLoc, String descendantGlobString, ImplicitExtensions implicitExts) {
+			return new ResSet(baseLoc, GlobPattern.parse(descendantGlobString, implicitExts), true, true);
 		}
 
 	}
@@ -288,11 +301,11 @@ public final class JsonConfigScope {
 	private final List<ResSet> included;
 	private final List<ResSet> excluded;
 	private final List<ResSet> emitted;
-	private final IPath sourceBasePath;
+	private final IPath sourceBaseLoc;
 	private String singleOutputFileName; // null if multiple output
-	private final IPath jsOutputBasePath;
-	private final IPath mapOutputBasePath;
-	private final IPath declarationOutputBasePath;
+	private final IPath jsOutputBaseLoc;
+	private final IPath mapOutputBaseLoc;
+	private final IPath declarationOutputBaseLoc;
 
 	private Set<IPath> entrancePaths; // lazy
 
@@ -302,52 +315,58 @@ public final class JsonConfigScope {
 		this.included = Collections.unmodifiableList(builder.included);
 		this.excluded = Collections.unmodifiableList(builder.excluded);
 		this.emitted = Collections.unmodifiableList(builder.emitted);
-		this.sourceBasePath = builder.sourceBasePath;
+		this.sourceBaseLoc = builder.sourceBaseLoc;
 		this.singleOutputFileName = builder.singleOutputFileName;
-		this.jsOutputBasePath = builder.jsOutputBasePath;
-		this.mapOutputBasePath = builder.mapOutputBasePath;
-		this.declarationOutputBasePath = builder.declarationOutputBasePath;
+		this.jsOutputBaseLoc = builder.jsOutputBaseLoc;
+		this.mapOutputBaseLoc = builder.mapOutputBaseLoc;
+		this.declarationOutputBaseLoc = builder.declarationOutputBaseLoc;
 	}
 
 	private static final class ResSet {
 
-		private final IPath basePath;
+		private final IPath baseLoc; // file system location
 		private final GlobPattern descendantGlob; // null if just the base path
-		private final boolean matchContainers; // null if just the base path
+		private final boolean source;
+		private final boolean matchContainers;
 
-		ResSet(IPath basePath, GlobPattern descendantGlob, boolean matchContainers) {
+		ResSet(IPath baseLoc, GlobPattern descendantGlob, boolean source, boolean matchContainers) {
 			if (descendantGlob != null) {
 				IPath leadingFixedPath = descendantGlob.getLeadingFixedPath();
 				if (leadingFixedPath != null) {
-					basePath = basePath.append(leadingFixedPath);
+					baseLoc = baseLoc.append(leadingFixedPath);
 					descendantGlob = descendantGlob.withoutLeadingFixedPath();
 				}
 			}
 
-			this.basePath = basePath;
+			this.baseLoc = baseLoc;
 			this.descendantGlob = descendantGlob;
+			this.source = source;
 			this.matchContainers = matchContainers;
 		}
 
-		boolean contains(IPath path, boolean isContainer) {
+		boolean isSource() {
+			return source;
+		}
+
+		boolean contains(IPath location, boolean isContainer) {
 			if (isContainer && !matchContainers) {
 				return false;
 			}
 			if (descendantGlob != null) {
-				if (!basePath.isPrefixOf(path)) {
+				if (!baseLoc.isPrefixOf(location)) {
 					return false;
 				}
-				IPath descendantPath = path.makeRelativeTo(basePath);
+				IPath descendantPath = location.makeRelativeTo(baseLoc);
 				Pattern descendantPattern = isContainer ? descendantGlob.getContainersPattern()
 						: descendantGlob.getFilesPattern();
 				return descendantPattern.matcher(descendantPath.toString()).matches();
 			}
-			return basePath.equals(path);
+			return baseLoc.equals(location);
 		}
 
 		@Override
 		public String toString() {
-			String s = basePath.toString();
+			String s = baseLoc.toString();
 			if (descendantGlob != null) {
 				s += " : " + descendantGlob;
 			}
@@ -377,24 +396,24 @@ public final class JsonConfigScope {
 	 */
 	public boolean includes(IResource resource) {
 		boolean isContainer = resource instanceof IContainer;
-		IPath path = resource.getFullPath();
-		while (path.segmentCount() > 0) {
+		IPath location = resource.getLocation();
+		while (location.segmentCount() > 0) {
 			for (ResSet resSet : alwaysIncluded) {
-				if (resSet.contains(path, isContainer)) {
+				if (resSet.contains(location, isContainer)) {
 					return true;
 				}
 			}
 			for (ResSet resSet : excluded) {
-				if (resSet.contains(path, isContainer)) {
+				if (resSet.contains(location, isContainer)) {
 					return false;
 				}
 			}
 			for (ResSet resSet : included) {
-				if (resSet.contains(path, isContainer)) {
+				if (resSet.contains(location, isContainer)) {
 					return true;
 				}
 			}
-			path = path.removeLastSegments(1);
+			location = location.removeLastSegments(1);
 			isContainer = true;
 		}
 		return false;
@@ -412,7 +431,7 @@ public final class JsonConfigScope {
 			if (entrancePaths == null) {
 				entrancePaths = new HashSet<>();
 				Stream.of(included, excluded, alwaysIncluded).flatMap(List::stream).forEach(resSet -> {
-					IPath path = resSet.basePath;
+					IPath path = resSet.baseLoc;
 					while (path.segmentCount() > 0) {
 						entrancePaths.add(path);
 						path = path.removeLastSegments(1);
@@ -420,7 +439,7 @@ public final class JsonConfigScope {
 				});
 			}
 		}
-		return entrancePaths.contains(resource.getFullPath());
+		return entrancePaths.contains(resource.getLocation());
 	}
 
 	/**
@@ -432,21 +451,23 @@ public final class JsonConfigScope {
 	 */
 	public boolean emits(IResource resource) {
 		boolean isContainer = resource instanceof IContainer;
-		IPath path = resource.getFullPath();
-		while (path.segmentCount() > 0) {
+		IPath location = resource.getLocation();
+		while (location.segmentCount() > 0) {
 			for (ResSet resSet : emitted) {
-				if (resSet.contains(path, isContainer)) {
+				if (resSet.contains(location, isContainer)) {
 					return true;
 				}
 			}
-			path = path.removeLastSegments(1);
+			location = location.removeLastSegments(1);
 			isContainer = true;
 		}
 		return false;
 	}
 
 	/**
-	 * Gets the "single" (concatenated) files that are emitted by this scope.
+	 * Gets the "single" (concatenated) workspace files that are emitted by this
+	 * scope. Additional files emitted outside of the workspace are not
+	 * returned.
 	 * 
 	 * @return collection of files; empty if this scope emits multiple files.
 	 */
@@ -454,51 +475,57 @@ public final class JsonConfigScope {
 		if (singleOutputFileName == null) {
 			return Collections.emptyList();
 		}
-		IWorkspaceRoot wsRoot = ResourcesPlugin.getWorkspace().getRoot();
 		List<IFile> result = new ArrayList<>(3);
-		result.add(wsRoot.getFile(jsOutputBasePath.append(singleOutputFileName)));
-		if (mapOutputBasePath != null) {
-			IPath outMapFilePath = mapOutputBasePath.append(singleOutputFileName)
+		addWorkspaceFiles(result, jsOutputBaseLoc.append(singleOutputFileName));
+		if (mapOutputBaseLoc != null) {
+			IPath outMapFileLoc = mapOutputBaseLoc.append(singleOutputFileName)
 					.addFileExtension(FileUtils.MAP_EXTENSION);
-			result.add(wsRoot.getFile(outMapFilePath));
+			addWorkspaceFiles(result, outMapFileLoc);
 		}
-		if (declarationOutputBasePath != null) {
-			IPath outDeclarationFilePath = declarationOutputBasePath.append(singleOutputFileName);
-			if (FileUtils.JS_EXTENSION.equals(outDeclarationFilePath.getFileExtension())) {
-				outDeclarationFilePath = outDeclarationFilePath.removeFileExtension();
+		if (declarationOutputBaseLoc != null) {
+			IPath outDeclarationFileLoc = declarationOutputBaseLoc.append(singleOutputFileName);
+			if (FileUtils.JS_EXTENSION.equals(outDeclarationFileLoc.getFileExtension())) {
+				outDeclarationFileLoc = outDeclarationFileLoc.removeFileExtension();
 			}
-			outDeclarationFilePath.addFileExtension(FileUtils.D_TS_EXTENSION);
-			result.add(wsRoot.getFile(outDeclarationFilePath));
+			outDeclarationFileLoc.addFileExtension(FileUtils.D_TS_EXTENSION);
+			addWorkspaceFiles(result, outDeclarationFileLoc);
 		}
 		return result;
 	}
 
 	/**
-	 * Gets all files emitted by this scope <i>specifically</> for an included
-	 * file.
+	 * Gets all workspace files emitted by this scope <i>specifically</> for an
+	 * included file. Additional files emitted outside of the workspace are not
+	 * returned.
 	 * 
 	 * @param includedFile
 	 *            included file to test.
 	 * @return collection of files; empty if the scope emits a single file.
 	 */
 	public Collection<IFile> getSpecificEmittedFiles(IFile includedFile) {
-		IPath path = includedFile.getFullPath().removeFileExtension();
-		if (!sourceBasePath.isPrefixOf(path) || singleOutputFileName != null) {
+		IPath loc = includedFile.getLocation().removeFileExtension();
+		if (!sourceBaseLoc.isPrefixOf(loc) || singleOutputFileName != null) {
 			return Collections.emptyList();
 		}
-		IPath relativePath = path.makeRelativeTo(sourceBasePath);
-		IWorkspaceRoot wsRoot = ResourcesPlugin.getWorkspace().getRoot();
+		IPath relativeLoc = loc.makeRelativeTo(sourceBaseLoc);
 		List<IFile> result = new ArrayList<>(3);
-		result.add(wsRoot.getFile(jsOutputBasePath.append(relativePath).addFileExtension(FileUtils.JS_EXTENSION)));
-		if (mapOutputBasePath != null) {
-			result.add(wsRoot
-					.getFile(mapOutputBasePath.append(relativePath).addFileExtension(FileUtils.JS_MAP_EXTENSION)));
+		addWorkspaceFiles(result, jsOutputBaseLoc.append(relativeLoc).addFileExtension(FileUtils.JS_EXTENSION));
+		if (mapOutputBaseLoc != null) {
+			addWorkspaceFiles(result,
+					mapOutputBaseLoc.append(relativeLoc).addFileExtension(FileUtils.JS_MAP_EXTENSION));
 		}
-		if (declarationOutputBasePath != null) {
-			result.add(wsRoot.getFile(
-					declarationOutputBasePath.append(relativePath).addFileExtension(FileUtils.D_TS_EXTENSION)));
+		if (declarationOutputBaseLoc != null) {
+			addWorkspaceFiles(result,
+					declarationOutputBaseLoc.append(relativeLoc).addFileExtension(FileUtils.D_TS_EXTENSION));
 		}
 		return result;
+	}
+
+	private void addWorkspaceFiles(List<IFile> list, IPath location) {
+		IWorkspaceRoot wsRoot = ResourcesPlugin.getWorkspace().getRoot();
+		for (IFile file : wsRoot.findFilesForLocationURI(URIUtil.toURI(location.makeAbsolute()))) {
+			list.add(file);
+		}
 	}
 
 	@Override
