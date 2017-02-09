@@ -64,6 +64,7 @@ public class BuildpathIndicatorLabelDecorator implements ILightweightLabelDecora
 
 	private ListenerList fListeners;
 	private ITypeScriptElementChangedListener fChangeListener;
+	private boolean decorating = false;
 
 	@Override
 	public void addListener(ILabelProviderListener listener) {
@@ -115,6 +116,9 @@ public class BuildpathIndicatorLabelDecorator implements ILightweightLabelDecora
 	}
 
 	private void fireChange(IResource[] elements) {
+		if (decorating) {
+			return;
+		}
 		if (fListeners != null && !fListeners.isEmpty()) {
 			LabelProviderChangedEvent event = new LabelProviderChangedEvent(this, elements);
 			Object[] listeners = fListeners.getListeners();
@@ -126,9 +130,14 @@ public class BuildpathIndicatorLabelDecorator implements ILightweightLabelDecora
 
 	@Override
 	public void decorate(Object element, IDecoration decoration) {
-		ImageDescriptor overlay = getOverlay(element);
-		if (overlay != null) {
-			decoration.addOverlay(overlay, IDecoration.TOP_RIGHT);
+		decorating = true;
+		try {
+			ImageDescriptor overlay = getOverlay(element);
+			if (overlay != null) {
+				decoration.addOverlay(overlay, IDecoration.TOP_RIGHT);
+			}
+		} finally {
+			decorating = false;
 		}
 	}
 
