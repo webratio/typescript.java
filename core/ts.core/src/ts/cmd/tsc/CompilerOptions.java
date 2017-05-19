@@ -36,6 +36,7 @@ public class CompilerOptions extends AbstractOptions {
 	private boolean init;
 	private boolean isolatedModules;
 	private String jsx;
+	private List<String> lib;
 	private boolean listEmittedFiles;
 	private boolean listFiles;
 	private String locale;
@@ -98,6 +99,7 @@ public class CompilerOptions extends AbstractOptions {
 		this.setInit(options.isInit());
 		this.setIsolatedModules(options.isIsolatedModules());
 		this.setJsx(options.getJsx());
+		this.setLib(options.getLib());
 		this.setListEmittedFiles(options.isListEmittedFiles());
 		this.setListFiles(options.isListFiles());
 		this.setLocale(options.getLocale());
@@ -509,6 +511,27 @@ public class CompilerOptions extends AbstractOptions {
 	 */
 	public void setListFiles(boolean listFiles) {
 		this.listFiles = listFiles;
+	}
+
+	/**
+	 * List of library files to be included in the compilation.
+	 * 
+	 * @return
+	 */
+	public List<String> getLib() {
+		if (lib == null) {
+			return null;
+		}
+		return Collections.unmodifiableList(lib);
+	}
+
+	/**
+	 * List of library files to be included in the compilation.
+	 * 
+	 * @param lib
+	 */
+	public void setLib(List<String> lib) {
+		this.lib = lib != null ? new ArrayList<>(lib) : null;
 	}
 
 	/**
@@ -1323,6 +1346,7 @@ public class CompilerOptions extends AbstractOptions {
 		fillOption("--init", isInit(), args);
 		fillOption("--isolatedModules", isIsolatedModules(), args);
 		fillOption("--jsx", getJsx(), args);
+		fillOption("--lib", getLib(), args);
 		fillOption("--listEmittedFiles", isListEmittedFiles(), args);
 		fillOption("--listFiles", isListFiles(), args);
 		fillOption("--locale", getLocale(), args);
