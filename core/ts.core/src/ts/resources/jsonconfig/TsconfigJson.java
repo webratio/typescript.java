@@ -23,22 +23,34 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonSyntaxException;
 
 import ts.cmd.tsc.CompilerOptions;
+import ts.utils.BooleanUtils;
 import ts.utils.FileUtils;
 import ts.utils.StringUtils;
 
 /**
  * Pojo for tsconfig.json
  * 
- * @see http://www.typescriptlang.org/docs/handbook/tsconfig.json.html
+ * @see http://www.typescriptlang.org/docs/handbook/tsconfig-json.html
  *
  */
 public class TsconfigJson {
 
+	// See
+	// https://github.com/SchemaStore/schemastore/blob/master/src/schemas/json/tsconfig.json
+
+	private static final String DEFAULT_TARGET = "es3";
+	private static final String[] AVAILABLE_TARGETS = new String[] { "es3", "es5", "es6", "es2015", "es2016", "es2017",
+			"esnext" };
+	private static final String[] AVAILABLE_MODULES = new String[] { "none", "commonjs", "amd", "umd", "system", "es6",
+			"es2015" };
+	private static final String DEFAULT_MODULE_RESOLUTION = "classic";
+	private static final String[] AVAILABLE_MODULE_RESOLUTIONS = new String[] { "node", "classic" };
+
 	private CompilerOptions compilerOptions;
 
-	private boolean compileOnSave;
+	private Boolean compileOnSave;
 
-	private boolean buildOnSave;
+	private Boolean buildOnSave;
 
 	private List<String> files;
 
@@ -49,8 +61,6 @@ public class TsconfigJson {
 	private List<String> defaultExclude;
 
 	public TsconfigJson() {
-		this.compileOnSave = true;
-		this.buildOnSave = false;
 	}
 
 	public void setCompilerOptions(CompilerOptions compilerOptions) {
@@ -62,10 +72,10 @@ public class TsconfigJson {
 	}
 
 	public boolean isCompileOnSave() {
-		return compileOnSave;
+		return BooleanUtils.toBoolean(compileOnSave);
 	}
 
-	public void setCompileOnSave(boolean compileOnSave) {
+	public void setCompileOnSave(Boolean compileOnSave) {
 		this.compileOnSave = compileOnSave;
 	}
 
@@ -83,7 +93,7 @@ public class TsconfigJson {
 	 * @return true if build must ne done on save and false otherwise.
 	 */
 	public boolean isBuildOnSave() {
-		return buildOnSave;
+		return BooleanUtils.toBoolean(buildOnSave);
 	}
 
 	/**
@@ -251,6 +261,51 @@ public class TsconfigJson {
 	 */
 	public static TsconfigJson load(InputStream in) {
 		return load(in, TsconfigJson.class);
+	}
+
+	/**
+	 * Returns the available targets.
+	 * 
+	 * @return the available targets.
+	 */
+	public static String[] getAvailableTargets() {
+		return AVAILABLE_TARGETS;
+	}
+
+	/**
+	 * Returns the default target.
+	 * 
+	 * @return the default target.
+	 */
+	public static String getDefaultTarget() {
+		return DEFAULT_TARGET;
+	}
+
+	/**
+	 * Returns the available modules.
+	 * 
+	 * @return the available modules.
+	 */
+	public static String[] getAvailableModules() {
+		return AVAILABLE_MODULES;
+	}
+
+	/**
+	 * Returns the available module resolutions.
+	 * 
+	 * @return the available module resolutions.
+	 */
+	public static String[] getAvailableModuleResolutions() {
+		return AVAILABLE_MODULE_RESOLUTIONS;
+	}
+
+	/**
+	 * Returns the default module resolution.
+	 * 
+	 * @return the default module resolution.
+	 */
+	public static String getDefaultModuleResolution() {
+		return DEFAULT_MODULE_RESOLUTION;
 	}
 
 }

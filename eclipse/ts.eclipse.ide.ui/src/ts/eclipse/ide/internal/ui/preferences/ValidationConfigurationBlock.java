@@ -25,14 +25,16 @@ import org.eclipse.ui.preferences.IWorkbenchPreferenceContainer;
 import ts.cmd.tslint.TslintSettingsStrategy;
 import ts.eclipse.ide.core.preferences.TypeScriptCorePreferenceConstants;
 import ts.eclipse.ide.internal.ui.TypeScriptUIMessages;
-import ts.eclipse.ide.internal.ui.dialogs.IStatusChangeListener;
 import ts.eclipse.ide.ui.preferences.BrowseButtonsComposite;
+import ts.eclipse.ide.ui.widgets.IStatusChangeListener;
 import ts.repository.ITypeScriptRepository;
 
 /**
  * tslint configuration block.
  *
  */
+// deprecated since now tslint is managed with tslint-language-service
+@Deprecated
 public class ValidationConfigurationBlock extends AbstractTypeScriptRepositoryConfigurationBlock {
 
 	private static final String[] DEFAULT_PATHS = new String[] { "${project_loc:node_modules/tslint}" };

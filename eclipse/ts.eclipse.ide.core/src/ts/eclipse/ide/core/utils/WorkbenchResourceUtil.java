@@ -16,6 +16,7 @@ import java.util.Set;
 
 import org.eclipse.core.resources.IContainer;
 import org.eclipse.core.resources.IFile;
+import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.resources.IResourceVisitor;
 import org.eclipse.core.resources.IWorkspaceRoot;
@@ -24,6 +25,7 @@ import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IPath;
 import org.eclipse.core.runtime.Path;
 
+import ts.eclipse.ide.core.TypeScriptCorePlugin;
 import ts.utils.FileUtils;
 import ts.utils.StringUtils;
 
@@ -114,7 +116,7 @@ public class WorkbenchResourceUtil {
 		}
 		IWorkspaceRoot root = ResourcesPlugin.getWorkspace().getRoot();
 		IContainer container = root.getContainerForLocation(containerPath);
-		if (container.exists()) {
+		if (container != null && container.exists()) {
 			return container;
 		}
 		IContainer[] containers = ResourcesPlugin.getWorkspace().getRoot().findContainersForLocation(containerPath);
@@ -139,4 +141,11 @@ public class WorkbenchResourceUtil {
 		return resource.getLocation().makeRelativeTo(parent.getLocation());
 	}
 
+	public static File resolvePath(String path, IProject project) {
+		if (!StringUtils.isEmpty(path)) {
+			IPath p = TypeScriptCorePlugin.getTypeScriptRepositoryManager().getPath(path, project);
+			return p != null ? p.toFile() : new File(path);
+		}
+		return null;
+	}
 }

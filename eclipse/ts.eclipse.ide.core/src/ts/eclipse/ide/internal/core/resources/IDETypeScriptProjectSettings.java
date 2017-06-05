@@ -16,6 +16,7 @@ import org.eclipse.core.resources.IProject;
 import org.eclipse.core.runtime.preferences.IEclipsePreferences;
 import org.eclipse.core.runtime.preferences.IEclipsePreferences.PreferenceChangeEvent;
 
+import ts.TypeScriptException;
 import ts.client.completions.ICompletionEntryMatcher;
 import ts.client.format.FormatCodeSettings;
 import ts.cmd.tslint.TslintSettingsStrategy;
@@ -26,10 +27,12 @@ import ts.eclipse.ide.core.resources.AbstractTypeScriptSettings;
 import ts.eclipse.ide.core.resources.IIDETypeScriptProject;
 import ts.eclipse.ide.core.resources.IIDETypeScriptProjectSettings;
 import ts.eclipse.ide.core.resources.buildpath.ITypeScriptBuildPath;
+import ts.eclipse.ide.core.utils.PreferencesHelper;
+import ts.eclipse.ide.core.utils.WorkbenchResourceUtil;
 import ts.eclipse.ide.internal.core.preferences.TypeScriptCorePreferenceInitializer;
 import ts.eclipse.ide.internal.core.repository.IDETypeScriptRepositoryManager;
 import ts.eclipse.ide.internal.core.resources.buildpath.TypeScriptBuildPath;
-import ts.nodejs.NodejsProcess;
+import ts.nodejs.NodejsProcessHelper;
 import ts.repository.ITypeScriptRepository;
 import ts.resources.SynchStrategy;
 import ts.utils.StringUtils;
@@ -81,7 +84,7 @@ public class IDETypeScriptProjectSettings extends AbstractTypeScriptSettings imp
 	@Override
 	public IEmbeddedNodejs getEmbeddedNodejs() {
 		String id = super.getStringPreferencesValue(TypeScriptCorePreferenceConstants.NODEJS_EMBEDDED_ID, null);
-		return TypeScriptCorePlugin.getNodejsInstallManager().findNodejsInstall(id);
+		return id != null ? TypeScriptCorePlugin.getNodejsInstallManager().findNodejsInstall(id) : null;
 	}
 
 	@Override
@@ -97,10 +100,33 @@ public class IDETypeScriptProjectSettings extends AbstractTypeScriptSettings imp
 		return resolvePath(path);
 	}
 
+	/**
+	 * Returns the nodejs install path from the workspace.
+	 * 
+	 * @return the nodejs install path from the workspace.
+	 */
+	public static File getWorkspaceNodejsInstallPath() {
+		IEclipsePreferences[] workspacePreferences = new IEclipsePreferences[] {
+				PreferencesHelper.getWorkspacePreferences(TypeScriptCorePlugin.PLUGIN_ID),
+				PreferencesHelper.getWorkspaceDefaultPreferences(TypeScriptCorePlugin.PLUGIN_ID) };
+		if (PreferencesHelper.getBooleanPreferencesValue(TypeScriptCorePreferenceConstants.USE_NODEJS_EMBEDDED, false,
+				workspacePreferences)) {
+			// Use Embedded nodejs.
+			String id = PreferencesHelper.getStringPreferencesValue(
+					TypeScriptCorePreferenceConstants.NODEJS_EMBEDDED_ID, null, workspacePreferences);
+			IEmbeddedNodejs embed = TypeScriptCorePlugin.getNodejsInstallManager().findNodejsInstall(id);
+			return embed != null ? embed.getPath() : null;
+		}
+		// Use Installed node.js
+		String path = PreferencesHelper.getStringPreferencesValue(TypeScriptCorePreferenceConstants.NODEJS_PATH, null,
+				workspacePreferences);
+		return WorkbenchResourceUtil.resolvePath(path, null);
+	}
+
 	@Override
 	public String getNodeVersion() {
 		File nodejsFile = getNodejsInstallPath();
-		return NodejsProcess.getNodeVersion(nodejsFile);
+		return NodejsProcessHelper.getNodeVersion(nodejsFile);
 	}
 
 	@Override
@@ -141,18 +167,28 @@ public class IDETypeScriptProjectSettings extends AbstractTypeScriptSettings imp
 	}
 
 	@Override
-	public File getTsserverFile() {
+	public File getTypesScriptDir() {
 		if (super.getBooleanPreferencesValue(TypeScriptCorePreferenceConstants.USE_EMBEDDED_TYPESCRIPT, false)) {
 			// Use TypeScript Repository.
 			ITypeScriptRepository repository = getRepository(TypeScriptCorePreferenceConstants.EMBEDDED_TYPESCRIPT_ID);
-			return (repository != null) ? repository.getTsserverFile() : null;
+			return (repository != null) ? repository.getTypesScriptDir() : null;
 		}
 
 		// Use Installed TypScript
 		String path = super.getStringPreferencesValue(TypeScriptCorePreferenceConstants.INSTALLED_TYPESCRIPT_PATH,
 				null);
-		File resolvedPath = resolvePath(path);
-		return resolvedPath != null ? IDETypeScriptRepositoryManager.getTsserverFile(resolvedPath) : null;
+		return resolvePath(path);
+	}
+
+	@Override
+	public File getTsserverPluginsFile() throws TypeScriptException {
+		if (super.getBooleanPreferencesValue(TypeScriptCorePreferenceConstants.TSSERVER_EMULATE_PLUGINS, false)) {
+			// Use TypeScript Repository.
+			ITypeScriptRepository repository = TypeScriptCorePlugin.getTypeScriptRepositoryManager()
+					.getDefaultRepository();
+			return (repository != null) ? repository.getTsserverPluginsFile() : null;
+		}
+		return null;
 	}
 
 	private ITypeScriptRepository getRepository(String preferenceName) {
@@ -229,7 +265,8 @@ public class IDETypeScriptProjectSettings extends AbstractTypeScriptSettings imp
 		return TypeScriptCorePreferenceConstants.USE_EMBEDDED_TYPESCRIPT.equals(event.getKey())
 				|| TypeScriptCorePreferenceConstants.EMBEDDED_TYPESCRIPT_ID.equals(event.getKey())
 				|| TypeScriptCorePreferenceConstants.INSTALLED_TYPESCRIPT_PATH.equals(event.getKey())
-				|| TypeScriptCorePreferenceConstants.TSSERVER_TRACE_ON_CONSOLE.equals(event.getKey());
+				|| TypeScriptCorePreferenceConstants.TSSERVER_TRACE_ON_CONSOLE.equals(event.getKey())
+				|| TypeScriptCorePreferenceConstants.TSSERVER_EMULATE_PLUGINS.equals(event.getKey());
 	}
 
 	private boolean isTslintPreferencesChanged(PreferenceChangeEvent event) {
@@ -241,8 +278,8 @@ public class IDETypeScriptProjectSettings extends AbstractTypeScriptSettings imp
 	}
 
 	private boolean isInstallTypesPreferencesChanged(PreferenceChangeEvent event) {
-		return TypeScriptCorePreferenceConstants.INSTALL_TYPES_ENABLE_TELEMETRY.equals(event.getKey()) ||
-				TypeScriptCorePreferenceConstants.INSTALL_TYPES_DISABLE_ATA.equals(event.getKey());
+		return TypeScriptCorePreferenceConstants.INSTALL_TYPES_ENABLE_TELEMETRY.equals(event.getKey())
+				|| TypeScriptCorePreferenceConstants.INSTALL_TYPES_DISABLE_ATA.equals(event.getKey());
 	}
 
 	private boolean isTypeScriptBuildPathPreferencesChanged(PreferenceChangeEvent event) {

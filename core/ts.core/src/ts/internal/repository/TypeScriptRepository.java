@@ -5,7 +5,6 @@ import java.io.File;
 import ts.repository.ITypeScriptRepository;
 import ts.repository.TypeScriptRepositoryException;
 import ts.repository.TypeScriptRepositoryManager;
-import ts.utils.FileUtils;
 
 /**
  *
@@ -18,11 +17,12 @@ public class TypeScriptRepository implements ITypeScriptRepository {
 	private String name;
 	private File typesScriptDir;
 	private File tscFile;
-	private File tsserverFile;
 	private File tslintFile;
 	private String tslintName;
 	private String typesScriptVersion;
 	private String tslintVersion;
+	private File tsserverPluginsFile;
+	private String tslintLanguageServiceName;
 
 	public TypeScriptRepository(File baseDir) throws TypeScriptRepositoryException {
 		this(baseDir, null);
@@ -36,17 +36,8 @@ public class TypeScriptRepository implements ITypeScriptRepository {
 	}
 
 	private void updateBaseDir(File baseDir) throws TypeScriptRepositoryException {
-		this.typesScriptDir = baseDir;
-		// tsserver file
-		this.tsserverFile = TypeScriptRepositoryManager.getTsserverFile(typesScriptDir);
-		if (!tsserverFile.exists()) {
-			this.typesScriptDir = new File(baseDir, "node_modules/typescript");
-			this.tsserverFile = TypeScriptRepositoryManager.getTsserverFile(typesScriptDir);
-		}
-		if (!tsserverFile.exists()) {
-			throw new TypeScriptRepositoryException(FileUtils.getPath(typesScriptDir)
-					+ " is not a valid TypeScript repository. Check the directory contains node_modules/typescript/bin/tsserver or bin/tsserver.");
-		}
+		this.typesScriptDir = new File(baseDir, "node_modules/typescript");
+		TypeScriptRepositoryManager.validateTypeScriptDir(typesScriptDir);
 		// tsc file
 		this.tscFile = TypeScriptRepositoryManager.getTscFile(typesScriptDir);
 		this.typesScriptVersion = TypeScriptRepositoryManager.getPackageJsonVersion(typesScriptDir);
@@ -58,6 +49,14 @@ public class TypeScriptRepository implements ITypeScriptRepository {
 			this.tslintVersion = TypeScriptRepositoryManager.getPackageJsonVersion(tslintBaseDir);
 			this.tslintName = generateName("tslint", tslintVersion);
 		}
+		// tslint-language-service file
+		File tslintLanguageServiceBaseDir = new File(baseDir, "node_modules/tslint-language-service");
+		if (tslintLanguageServiceBaseDir.exists()) {
+			String tslintLanguageServiceVersion = TypeScriptRepositoryManager.getPackageJsonVersion(tslintLanguageServiceBaseDir);
+			this.tslintLanguageServiceName= generateName("tslint-language-service", tslintLanguageServiceVersion);
+		}
+		// tsserver-plugins
+		this.tsserverPluginsFile = new File(baseDir, "tsserver-plugins/bin/tsserver-plugins");
 	}
 
 	private String generateName(String prefix, String version) {
@@ -95,6 +94,11 @@ public class TypeScriptRepository implements ITypeScriptRepository {
 	}
 
 	@Override
+	public File getTypesScriptDir() {
+		return typesScriptDir;
+	}
+
+	@Override
 	public String getTypesScriptVersion() {
 		return typesScriptVersion;
 	}
@@ -102,11 +106,6 @@ public class TypeScriptRepository implements ITypeScriptRepository {
 	@Override
 	public File getTscFile() {
 		return tscFile;
-	}
-
-	@Override
-	public File getTsserverFile() {
-		return tsserverFile;
 	}
 
 	@Override
@@ -122,6 +121,16 @@ public class TypeScriptRepository implements ITypeScriptRepository {
 	@Override
 	public String getTslintName() {
 		return tslintName;
+	}
+
+	@Override
+	public File getTsserverPluginsFile() {
+		return tsserverPluginsFile;
+	}
+	
+	@Override
+	public String getTslintLanguageServiceName() {
+		return tslintLanguageServiceName;
 	}
 
 }

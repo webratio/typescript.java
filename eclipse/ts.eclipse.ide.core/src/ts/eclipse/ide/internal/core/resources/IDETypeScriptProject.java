@@ -12,17 +12,25 @@ package ts.eclipse.ide.internal.core.resources;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import org.eclipse.core.resources.IFile;
+import org.eclipse.core.resources.IMarker;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.runtime.CoreException;
+import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.jface.text.IDocument;
 
 import ts.TypeScriptException;
 import ts.client.ITypeScriptServiceClient;
+import ts.client.compileonsave.CompileOnSaveAffectedFileListSingleProject;
+import ts.client.diagnostics.Diagnostic;
+import ts.client.diagnostics.DiagnosticEventBody;
 import ts.cmd.tsc.ITypeScriptCompiler;
 import ts.cmd.tslint.ITypeScriptLint;
 import ts.eclipse.ide.core.TypeScriptCorePlugin;
@@ -144,6 +152,9 @@ public class IDETypeScriptProject extends TypeScriptProject implements IIDETypeS
 		TypeScriptCorePlugin.getResourcesWatcher().addFileWatcherListener(getProject(), FileUtils.TSCONFIG_JSON,
 				tsconfigFileListener);
 		TypeScriptCorePlugin.getResourcesWatcher().addFileWatcherListener(getProject(), FileUtils.JSCONFIG_JSON,
+				tsconfigFileListener);
+		// Should be removed when tslint-language-service will support fs.watcher.
+		TypeScriptCorePlugin.getResourcesWatcher().addFileWatcherListener(getProject(), FileUtils.TSLINT_JSON,
 				tsconfigFileListener);
 	}
 
@@ -362,4 +373,135 @@ public class IDETypeScriptProject extends TypeScriptProject implements IIDETypeS
 		return new IDETypeScriptLint(tslintFile, tslintJsonFile, nodejsFile);
 	}
 
+	// --------------------------------------- Compile with tsserver
+
+	@Override
+	public void compileWithTsserver(List<IFile> updatedTsFiles, List<IFile> removedTsFiles, IProgressMonitor monitor)
+			throws TypeScriptException {
+		try {
+			List<String> tsFilesToCompile = new ArrayList<>();
+			// Collect ts files to compile by using tsserver to retrieve
+			// dependencies files.
+			// It works only if tsconfig.json declares "compileOnSave: true".
+			if (collectTsFilesToCompile(updatedTsFiles, getClient(), tsFilesToCompile, false,
+					monitor)) {
+				return;
+			}
+
+			// Compile ts files with tsserver.
+			if (compileTsFiles(tsFilesToCompile, getClient(), monitor)) {
+				return;
+			}
+			if (removedTsFiles.size() > 0) {
+				// ts files was removed, how to get referenced files which must
+				// be recompiled (with errors)?
+			}
+		} catch (TypeScriptException e) {
+			throw e;
+		} catch (Exception e) {
+			throw new TypeScriptException(e);
+		}
+	}
+
+	/**
+	 * Collect ts files to compile from the given ts files list.
+	 * 
+	 * @param tsFiles
+	 * @param client
+	 * @param tsFilesToCompile
+	 * @param exclude
+	 * @param monitor
+	 * @throws Exception
+	 */
+	private boolean collectTsFilesToCompile(List<IFile> tsFiles, ITypeScriptServiceClient client,
+			List<String> tsFilesToCompile, boolean exclude, IProgressMonitor monitor)
+			throws Exception {
+		for (IFile tsFile : tsFiles) {
+			if (monitor.isCanceled()) {
+				return true;
+			}
+			String filename = WorkbenchResourceUtil.getFileName(tsFile);
+			if (!tsFilesToCompile.contains(filename)) {
+				collectTsFilesToCompile(filename, client, tsFilesToCompile, exclude);
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Collect ts files to compile from the given ts file name.
+	 * 
+	 * @param filename
+	 * @param client
+	 * @param tsFilesToCompile
+	 * @param exclude
+	 * @throws Exception
+	 */
+	private void collectTsFilesToCompile(String filename, ITypeScriptServiceClient client,
+			List<String> tsFilesToCompile, boolean exclude) throws Exception {
+		// call tsserver compileOnSaveAffectedFileList to retrieve file
+		// dependencies of the given filename
+		List<CompileOnSaveAffectedFileListSingleProject> affectedProjects = client
+				.compileOnSaveAffectedFileList(filename).get(5000, TimeUnit.MILLISECONDS);
+		for (CompileOnSaveAffectedFileListSingleProject affectedProject : affectedProjects) {
+			List<String> affectedTsFilenames = affectedProject.getFileNames();
+			for (String affectedFilename : affectedTsFilenames) {
+				if (!tsFilesToCompile.contains(affectedFilename) && !(exclude && filename.equals(affectedFilename))) {
+					tsFilesToCompile.add(affectedFilename);
+				}
+			}
+		}
+	}
+
+	/**
+	 * Compile ts files list with tsserver.
+	 * 
+	 * @param tsFilesToCompile
+	 * @param client
+	 * @param monitor
+	 * @return true if process must be stopped and false otherwise.
+	 * @throws Exception
+	 */
+	private boolean compileTsFiles(List<String> tsFilesToCompile, ITypeScriptServiceClient client,
+			IProgressMonitor monitor) throws Exception {
+		for (String filename : tsFilesToCompile) {
+			if (monitor.isCanceled()) {
+				return true;
+			}
+			compileTsFile(filename, client);
+		}
+		return false;
+	}
+
+	/**
+	 * Compile ts file with tsserver.
+	 * 
+	 * @param filename
+	 * @param client
+	 * @throws Exception
+	 */
+	private void compileTsFile(String filename, ITypeScriptServiceClient client) throws Exception {
+		// Compile the given ts filename with tsserver
+		Boolean result = client.compileOnSaveEmitFile(filename, true).get(5000, TimeUnit.MILLISECONDS);
+
+		IFile tsFile = WorkbenchResourceUtil.findFileFromWorkspace(filename);
+		if (tsFile != null) {
+			// Delete TypeScript error marker
+			TypeScriptResourceUtil.deleteTscMarker(tsFile);
+			// Add TypeScript error marker if there error errors.
+			DiagnosticEventBody event = client.syntacticDiagnosticsSync(filename, false).get(5000,
+					TimeUnit.MILLISECONDS);
+			addMarker(tsFile, event);
+			event = client.semanticDiagnosticsSync(filename, false).get(5000, TimeUnit.MILLISECONDS);
+			addMarker(tsFile, event);
+		}
+	}
+
+	public void addMarker(IFile tsFile, DiagnosticEventBody event) throws CoreException {
+		List<Diagnostic> diagnostics = event.getDiagnostics();
+		for (Diagnostic diagnostic : diagnostics) {
+			TypeScriptResourceUtil.addTscMarker(tsFile, diagnostic.getText(), IMarker.SEVERITY_ERROR,
+					diagnostic.getStart().getLine());
+		}
+	}
 }

@@ -27,10 +27,12 @@ import ts.client.configure.ConfigureRequestArguments;
 import ts.client.diagnostics.DiagnosticEvent;
 import ts.client.diagnostics.DiagnosticEventBody;
 import ts.client.format.FormatCodeSettings;
+import ts.client.jsdoc.TextInsertion;
 import ts.client.navbar.NavigationBarItemRoot;
 import ts.client.occurrences.OccurrencesResponseItem;
 import ts.client.quickinfo.QuickInfo;
 import ts.client.references.ReferencesResponseBody;
+import ts.client.rename.RenameResponseBody;
 import ts.internal.LocationReader;
 
 /**
@@ -138,12 +140,12 @@ public abstract class AbstractTypeScriptFile implements ITypeScriptFile {
 		int offset = location.getOffset();
 		return client.quickInfo(this.getName(), line, offset);
 	}
-	
+
 	@Override
 	public CompletableFuture<List<DiagnosticEvent>> geterr() throws TypeScriptException {
 		this.synch();
 		ITypeScriptServiceClient client = tsProject.getClient();
-		return client.geterr(new String[] {getName()}, 0);
+		return client.geterr(new String[] { getName() }, 0);
 	}
 
 	@Override
@@ -229,6 +231,17 @@ public abstract class AbstractTypeScriptFile implements ITypeScriptFile {
 	}
 
 	@Override
+	public CompletableFuture<RenameResponseBody> rename(int position, Boolean findInComments,
+			Boolean findInStrings) throws TypeScriptException {
+		this.synch();
+		ITypeScriptServiceClient client = tsProject.getClient();
+		Location location = this.getLocation(position);
+		int line = location.getLine();
+		int offset = location.getOffset();
+		return client.rename(this.getName(), line, offset, findInComments, findInStrings);
+	}
+
+	@Override
 	public CompletableFuture<List<FileSpan>> implementation(int position) throws TypeScriptException {
 		this.synch();
 		ITypeScriptServiceClient client = tsProject.getClient();
@@ -238,6 +251,16 @@ public abstract class AbstractTypeScriptFile implements ITypeScriptFile {
 		return client.implementation(this.getName(), line, offset);
 	}
 
+	@Override
+	public CompletableFuture<TextInsertion> docCommentTemplate(int position) throws TypeScriptException {
+		this.synch();
+		ITypeScriptServiceClient client = tsProject.getClient();
+		Location location = this.getLocation(position);
+		int line = location.getLine();
+		int offset = location.getOffset();
+		return client.docCommentTemplate(this.getName(), line, offset);
+	}
+	
 	@Override
 	public CompletableFuture<List<CodeAction>> getCodeFixes(int startPosition, int endPosition,
 			List<Integer> errorCodes) throws TypeScriptException {

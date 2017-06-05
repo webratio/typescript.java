@@ -22,8 +22,8 @@ import org.eclipse.core.runtime.CoreException;
 import ts.eclipse.ide.core.resources.IIDETypeScriptProject;
 import ts.eclipse.ide.core.resources.ITypeScriptElementChangedListener;
 import ts.eclipse.ide.core.resources.UseSalsa;
-import ts.eclipse.ide.core.resources.WorkspaceTypeScriptSettingsHelper;
 import ts.eclipse.ide.core.resources.buildpath.ITypeScriptBuildPath;
+import ts.eclipse.ide.core.utils.PreferencesHelper;
 import ts.eclipse.ide.internal.core.Trace;
 import ts.resources.ITypeScriptResourcesManagerDelegate;
 import ts.utils.FileUtils;
@@ -115,7 +115,7 @@ public class IDEResourcesManager implements ITypeScriptResourcesManagerDelegate 
 	}
 
 	public boolean hasSalsaNature(IProject project) {
-		UseSalsa useSalsa = WorkspaceTypeScriptSettingsHelper.getUseSalsa();
+		UseSalsa useSalsa = PreferencesHelper.getUseSalsa();
 		switch (useSalsa) {
 		case Never:
 			return false;
@@ -142,6 +142,17 @@ public class IDEResourcesManager implements ITypeScriptResourcesManagerDelegate 
 			return FileUtils.getFileExtension(((File) fileObject).getName());
 		} else if (fileObject instanceof String) {
 			return FileUtils.getFileExtension((String) fileObject);
+		}
+		return null;
+	}
+
+	protected String getFileName(Object fileObject) {
+		if (fileObject instanceof IFile) {
+			return ((IFile) fileObject).getName();
+		} else if (fileObject instanceof File) {
+			return ((File) fileObject).getName();
+		} else if (fileObject instanceof String) {
+			return (String) fileObject;
 		}
 		return null;
 	}
@@ -175,6 +186,13 @@ public class IDEResourcesManager implements ITypeScriptResourcesManagerDelegate 
 		String ext = getExtension(fileObject);
 		ext = ext != null ? ext.toLowerCase() : null;
 		return ext != null && (FileUtils.TS_EXTENSION.equals(ext) || FileUtils.TSX_EXTENSION.equals(ext));
+	}
+
+	@Override
+	public boolean isDefinitionTsFile(Object fileObject) {
+		String name = getFileName(fileObject);
+		name = name != null ? name.toLowerCase() : null;
+		return name != null && (name.endsWith(FileUtils.DEFINITION_TS_EXTENSION));
 	}
 
 	@Override

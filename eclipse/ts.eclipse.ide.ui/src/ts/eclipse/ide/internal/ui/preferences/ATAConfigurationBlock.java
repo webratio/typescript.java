@@ -23,9 +23,9 @@ import org.eclipse.ui.preferences.IWorkbenchPreferenceContainer;
 
 import ts.eclipse.ide.core.preferences.TypeScriptCorePreferenceConstants;
 import ts.eclipse.ide.internal.ui.TypeScriptUIMessages;
-import ts.eclipse.ide.internal.ui.dialogs.IStatusChangeListener;
 import ts.eclipse.ide.ui.preferences.OptionsConfigurationBlock;
 import ts.eclipse.ide.ui.preferences.ScrolledPageContent;
+import ts.eclipse.ide.ui.widgets.IStatusChangeListener;
 
 /**
  * Automatic Type Acquisition (ATA) configuration block.
@@ -105,13 +105,13 @@ public class ATAConfigurationBlock extends OptionsConfigurationBlock {
 	private void createDisableATAField(Composite parent) {
 		// Create "Disable ATA" checkbox
 		enableTelemetry = addCheckBox(parent, TypeScriptUIMessages.ATAConfigurationBlock_disableATA_checkbox_label,
-				PREF_INSTALL_TYPES_DISABLE_ATA, new String[] { "true", "true" }, 0);
+				PREF_INSTALL_TYPES_DISABLE_ATA, new String[] { "true", "false" }, 0);
 	}
 	
 	private void createEnableTelementryField(Composite parent) {
 		// Create "Enable telemetry" checkbox
 		enableTelemetry = addCheckBox(parent, TypeScriptUIMessages.ATAConfigurationBlock_enableTelemetry_checkbox_label,
-				PREF_INSTALL_TYPES_ENABLE_TELEMETRY, new String[] { "true", "true" }, 0);
+				PREF_INSTALL_TYPES_ENABLE_TELEMETRY, new String[] { "true", "false" }, 0);
 	}
 
 	/*protected void createBrowseButtons(final Composite parent, final Combo filePathCombo) {

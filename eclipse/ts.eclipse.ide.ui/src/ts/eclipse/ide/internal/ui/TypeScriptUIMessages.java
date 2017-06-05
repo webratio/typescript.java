@@ -8,6 +8,7 @@
  *  Contributors:
  *  Angelo Zerr <angelo.zerr@gmail.com> - initial API and implementation
  *  Lorenzo Dalla Vecchia <lorenzo.dallavecchia@webratio.com> - Added save actions
+ *  Springrbua - TypeScript project wizard
  */
 package ts.eclipse.ide.internal.ui;
 
@@ -27,10 +28,14 @@ public class TypeScriptUIMessages extends NLS {
 	private static ResourceBundle fResourceBundle;
 
 	// Buttons
+	public static String Browse;
 	public static String Browse_FileSystem_button;
 	public static String Browse_Workspace_button;
 	public static String Button_newFolder;
 	public static String Variables_button;
+
+	// ComboBox
+	public static String ComboBox_none;
 
 	// Errors
 	public static String TypeScriptUIPlugin_internal_error;
@@ -64,20 +69,35 @@ public class TypeScriptUIMessages extends NLS {
 	public static String ATAConfigurationBlock_description;
 	public static String ATAConfigurationBlock_disableATA_checkbox_label;
 	public static String ATAConfigurationBlock_enableTelemetry_checkbox_label;
-	
+
 	// nodejs
 	public static String NodejsConfigurationBlock_nodejs_group_label;
 	public static String NodejsConfigurationBlock_embedded_checkbox_label;
 	public static String NodejsConfigurationBlock_installed_checkbox_label;
 	public static String NodejsConfigurationBlock_nodePath_label;
+	public static String NodejsConfigurationBlock_nodeVersion_label;
+
+	public static String NodejsConfigurationBlock_embeddedNode_required_error;
+	public static String NodejsConfigurationBlock_installedNode_required_error;
+	public static String NodejsConfigurationBlock_nodeFile_exists_error;
+	public static String NodejsConfigurationBlock_nodeFile_invalid_error;
 
 	// TypeScript Runtime
 	public static String TypeScriptRuntimeConfigurationBlock_typescript_group_label;
 	public static String TypeScriptRuntimeConfigurationBlock_embedded_checkbox_label;
 	public static String TypeScriptRuntimeConfigurationBlock_installed_checkbox_label;
+	public static String TypeScriptRuntimeConfigurationBlock_tsRuntimePath_label;
+	public static String TypeScriptRuntimeConfigurationBlock_tsRuntimeVersion_label;
 
+	public static String TypeScriptRuntimeConfigurationBlock_embeddedTypeScript_required_error;
+	public static String TypeScriptRuntimeConfigurationBlock_installedTypeScript_required_error;
+	public static String TypeScriptRuntimeConfigurationBlock_typeScriptFile_exists_error;
+	public static String TypeScriptRuntimeConfigurationBlock_typeScriptFile_invalid_error;
+	public static String TypeScriptRuntimeConfigurationBlock_installedTypeScript_emulatePlugins_warning;
+	
 	// tsserver
 	public static String TypeScriptRuntimeConfigurationBlock_traceOnConsole_label;
+	public static String TypeScriptRuntimeConfigurationBlock_emulatePlugins_label;
 
 	// Formatter
 	public static String FormatterConfigurationBlock_editorOptions_group_label;
@@ -151,6 +171,57 @@ public class TypeScriptUIMessages extends NLS {
 	// Implementation
 	public static String TypeScriptImplementationLabelProvider_text;
 
+	// Wizards
+	public static String NewTypeScriptProjectWizard_windowTitle;
+	public static String NewTypeScriptProjectWizard_newProjectTitle;
+	public static String NewTypeScriptProjectWizard_newProjectDescription;
+
+	public static String TSConfigWizardPage_title;
+	public static String TSConfigWizardPage_description;
+	public static String TSConfigWizardPage_module;
+	public static String TSConfigWizardPage_moduleResolution;
+	public static String TSConfigWizardPage_target;
+	public static String TSConfigWizardPage_outDir;
+	public static String TSConfigWizardPage_declaration;
+	public static String TSConfigWizardPage_sourceMap;
+	public static String TSConfigWizardPage_removeComments;
+	public static String TSConfigWizardPage_emitDecoratorMetadata;
+	public static String TSConfigWizardPage_experimentalDecorators;
+	public static String TSConfigWizardPage_noFallthroughCasesInSwitch;
+	public static String TSConfigWizardPage_noImplicitAny;
+	public static String TSConfigWizardPage_noImplicitReturns;
+	public static String TSConfigWizardPage_strictNullChecks;
+
+	public static String TypeScriptRuntimeAndNodejsWizardPage_title;
+	public static String TypeScriptRuntimeAndNodejsWizardPage_description;
+	public static String TypeScriptRuntimeAndNodejsWizardPage_typescript_group_label;
+	public static String TypeScriptRuntimeAndNodejsWizardPage_useEmbeddedTsRuntime_label;
+	public static String TypeScriptRuntimeAndNodejsWizardPage_useInstallTsRuntime_label;
+	public static String TypeScriptRuntimeAndNodejsWizardPage_nodejs_group_label;
+	public static String TypeScriptRuntimeAndNodejsWizardPage_useEmbeddedNodeJs_label;
+	public static String TypeScriptRuntimeAndNodejsWizardPage_useInstalledNodeJs_label;
+	
+	// NPM Module Versions
+	public static String NPMModuleVersionsSelectionDialog_title;
+	public static String NPMModuleVersionsSelectionDialog_message;
+	public static String NPMModuleVersionsSelectionDialog_searchJob_taskName;
+
+	// NPM Install Widgets
+	public static String NPMInstallWidget_versionText_message;
+	public static String NPMInstallWidget_ValidateVersionJob_name;
+	public static String NPMInstallWidget_SearchingVersions_status;
+	public static String NPMInstallWidget_InvalidVersion_status;
+
+	public static String TSLintWizardPage_enableTslint_text;
+	public static String TSLintWizardPage_title;
+	public static String TSLintWizardPage_description;
+	public static String TSLintWizardPage_tslint_group_label;
+	public static String TSLintWizardPage_useEmbeddedTslintRuntime_label;
+	public static String TSLintWizardPage_useInstallTslintRuntime_label;
+	public static String TSLintWizardPage_tslintPlugin_group_label;
+	public static String TSLintWizardPage_useEmbeddedTslintPlugin_label;
+	public static String TSLintWizardPage_useInstallTslintPlugin_label;
+	
 	public static ResourceBundle getResourceBundle() {
 		try {
 			if (fResourceBundle == null)

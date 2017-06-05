@@ -10,6 +10,7 @@
  */
 package ts.eclipse.ide.core.utils;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -39,11 +40,13 @@ import org.eclipse.core.runtime.Path;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.jface.text.IDocument;
 
+import ts.TypeScriptException;
 import ts.eclipse.ide.core.TypeScriptCorePlugin;
 import ts.eclipse.ide.core.builder.TypeScriptBuilder;
 import ts.eclipse.ide.core.resources.IIDETypeScriptProject;
 import ts.eclipse.ide.core.resources.jsconfig.IDETsconfigJson;
 import ts.eclipse.ide.internal.core.resources.IDEResourcesManager;
+import ts.eclipse.ide.internal.core.resources.IDETypeScriptProjectSettings;
 import ts.eclipse.ide.internal.core.resources.jsonconfig.JsonConfigResourcesManager;
 import ts.eclipse.ide.internal.core.resources.jsonconfig.JsonConfigScope;
 import ts.resources.TypeScriptResourcesManager;
@@ -64,6 +67,10 @@ public class TypeScriptResourceUtil {
 		return IDEResourcesManager.getInstance().isTsOrTsxFile(element);
 	}
 
+	public static boolean isDefinitionTsFile(Object element) {
+		return IDEResourcesManager.getInstance().isDefinitionTsFile(element);
+	}
+	
 	public static boolean isTsOrTsxOrJsxFile(Object element) {
 		return IDEResourcesManager.getInstance().isTsOrTsxOrJsxFile(element);
 	}
@@ -410,13 +417,18 @@ public class TypeScriptResourceUtil {
 		return formatError(TSC_TYPE, code, message);
 	}
 
+	public static IDocument getDocument(IFile file) {
+		IPath location = file.getLocation();
+		return getDocument(location);
+	}
+
 	/**
 	 * Returns the {@link IDocument} from the given file and null if it's not
 	 * possible.
 	 */
-	public static IDocument getDocument(IFile file) {
+	public static IDocument getDocument(IPath location) {
 		ITextFileBufferManager manager = FileBuffers.getTextFileBufferManager();
-		IPath location = file.getLocation();
+
 		boolean connected = false;
 		try {
 			ITextFileBuffer buffer = manager.getTextFileBuffer(location, LocationKind.NORMALIZE);
@@ -460,6 +472,17 @@ public class TypeScriptResourceUtil {
 		}
 
 		return ResourcesPlugin.getWorkspace().getRoot().getFile(location);
+	}
+
+	public static File getNodejsInstallPath(IProject project) throws TypeScriptException, CoreException {
+		if (isTypeScriptProject(project)) {
+			return getTypeScriptProject(project).getProjectSettings().getNodejsInstallPath();
+		}
+		return getWorkspaceNodejsInstallPath();
+	}
+
+	public static File getWorkspaceNodejsInstallPath() {
+		return IDETypeScriptProjectSettings.getWorkspaceNodejsInstallPath();
 	}
 
 }

@@ -53,8 +53,8 @@ import org.eclipse.ui.preferences.WorkingCopyManager;
 import org.osgi.service.prefs.BackingStoreException;
 
 import ts.eclipse.ide.core.TypeScriptCorePlugin;
-import ts.eclipse.ide.internal.ui.dialogs.IStatusChangeListener;
 import ts.eclipse.ide.ui.TypeScriptUIPlugin;
+import ts.eclipse.ide.ui.widgets.IStatusChangeListener;
 
 /**
  * Abstract options configuration block providing a general implementation for
@@ -484,10 +484,10 @@ public abstract class OptionsConfigurationBlock {
 			comboBox.select(data.getSelection(currValue));
 		} else {
 			comboBox.setData(key);
-			comboBox.addModifyListener(getTextModifyListener());
 			if (currValue != null) {
 				comboBox.setText(currValue);
 			}
+			comboBox.addModifyListener(getTextModifyListener());
 		}
 
 		fComboBoxes.add(comboBox);

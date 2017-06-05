@@ -216,12 +216,12 @@
             id="ts.eclipse.ide.ui.preference.TypeScriptRuntimePreferencePage"
             category="ts.eclipse.ide.ui.preference.TypeScriptMainPreferencePage">
       </page>      
-	  <page
+	  <!--<page
             name="%ValidationPreferencePage.name"        
             class="ts.eclipse.ide.internal.ui.preferences.ValidationPreferencePage"
             id="ts.eclipse.ide.ui.preference.ValidationPreferencePage"
             category="ts.eclipse.ide.ui.preference.TypeScriptMainPreferencePage">
-      </page>
+      </page>-->
 	  <page
             name="%EditorPreferencePage.name"        
             class="ts.eclipse.ide.internal.ui.preferences.EditorPreferencePage"
@@ -294,7 +294,7 @@
 		     </adapt>         
          </enabledWhen>
       </page>
-	  <page
+	  <!--<page
             name="%ValidationPreferencePage.name"        
             class="ts.eclipse.ide.internal.ui.preferences.ValidationPreferencePage"
             id="ts.eclipse.ide.ui.property.ValidationPreferencePage"
@@ -304,7 +304,7 @@
 		     	  <test property="ts.eclipse.ide.core.isTypeScriptProject" />
 		     </adapt>         
          </enabledWhen>
-      </page>
+      </page>-->
       <page
             name="%EditorPreferencePage.name"        
             class="ts.eclipse.ide.internal.ui.preferences.EditorPreferencePage"
@@ -504,4 +504,101 @@
 			class="ts.eclipse.ide.internal.ui.preferences.TypeScriptUIPreferenceInitializer" />
 	</extension>
 	  
+   <!-- Perspective --> 
+   <extension
+         point="org.eclipse.ui.perspectives">
+      <perspective
+            name="%ts.perspective.name"
+            icon="icons/full/obj16/logo.png"
+            class="ts.eclipse.ide.internal.ui.perspectives.TypeScriptPerspectiveFactory"
+            id="ts.eclipse.ide.ui.perspectives.TypeScriptPerspective">
+		<description>
+            %ts.perspective.description
+         </description>            
+      </perspective>
+   	</extension>
+   		  
+	<!-- Provide TypeScript wizards, Console, etc views for the TypeScript perspective  -->
+	<extension point="org.eclipse.ui.perspectiveExtensions"> 
+        <perspectiveExtension targetID="ts.eclipse.ide.ui.perspectives.TypeScriptPerspective">
+            
+            <newWizardShortcut id="ts.eclipse.ide.ui.wizards.new.project"/>
+            <newWizardShortcut id="ts.eclipse.ide.ui.wizards.new.class"/>
+            
+            <newWizardShortcut id="org.eclipse.ui.wizards.new.file"/>
+            <newWizardShortcut id="org.eclipse.ui.wizards.new.folder"/>
+            
+            <viewShortcut id="org.eclipse.tm.terminal.view.ui.TerminalsView"/>
+            <viewShortcut id="org.eclipse.ui.views.ContentOutline"/> 
+            <viewShortcut id="org.eclipse.ui.console.ConsoleView"/>
+            <viewShortcut id="org.eclipse.ui.views.AllMarkersView"/>
+            <viewShortcut id="org.eclipse.ui.views.ProblemView"/> 
+            <viewShortcut id="org.eclipse.wst.common.snippets.internal.ui.SnippetsView"/>
+
+            <perspectiveShortcut id="org.eclipse.jdt.ui.JavaPerspective"/>
+            
+            <showInPart id="org.eclipse.ui.views.ResourceNavigator"/>
+         	<showInPart id="org.eclipse.ui.navigator.ProjectExplorer"/>
+         			
+        	<actionSet id="org.eclipse.wst.web.ui.wizardsActionSet" />
+        	<actionSet id="org.eclipse.wst.server.ui.internal.webbrowser.actionSet"/>
+        	<actionSet id="org.eclipse.debug.ui.launchActionSet"/>
+        	<actionSet id="org.eclipse.debug.ui.breakpointActionSet"/>         
+         
+        </perspectiveExtension> 
+    </extension>
+       		  
+	<!-- Provide TypeScript wizards from the New contextual menu -->
+	<extension
+		point="org.eclipse.ui.navigator.navigatorContent">
+		<commonWizard
+			type="new"
+			menuGroupId="org.eclipse.jst.j2ee.ui.newProjects"
+			wizardId="ts.eclipse.ide.ui.wizards.new.project">
+			<enablement>
+				<adapt type="org.eclipse.core.resources.IResource">
+					
+				</adapt>
+			</enablement>
+		</commonWizard>
+		<commonWizard
+			type="new"
+			menuGroupId="ts.eclipse.ide.ui.menu"
+			wizardId="ts.eclipse.ide.ui.wizards.new.class">
+			<enablement>
+				<adapt type="org.eclipse.core.resources.IResource">
+					<test
+		            	forcePluginActivation="true"
+		            	property="ts.eclipse.ide.core.isTypeScriptResource"/>
+				</adapt>
+			</enablement>
+		</commonWizard>
+	</extension>       		  
+	<!-- Wizards -->
+	<extension
+	      point="org.eclipse.ui.newWizards">
+		<category
+		   id="ts.eclipse.ide.ui.new"
+		   name="%NewTypeScriptWizard.category">
+		</category>
+	 	<wizard
+		   id="ts.eclipse.ide.ui.wizards.new.project"
+	       name="%NewTypeScriptProjectWizard.name"
+		   class="ts.eclipse.ide.internal.ui.wizards.NewTypeScriptProjectWizard"
+		   project="true"
+		   category="ts.eclipse.ide.ui.new"
+		   icon="icons/full/obj16/logo.png"
+		   finalPerspective="ts.eclipse.ide.ui.perspectives.TypeScriptPerspective" >
+	       <description>%NewTypeScriptProjectWizard.desc</description>
+		</wizard>
+	 	<wizard
+		   id="ts.eclipse.ide.ui.wizards.new.class"
+	       name="%NewClassWizard.name"
+		   class="ts.eclipse.ide.internal.ui.wizards.NewClassWizard"
+		   category="ts.eclipse.ide.ui.new"
+		   icon="icons/full/obj16/class.gif"
+		   finalPerspective="ts.eclipse.ide.ui.perspectives.TypeScriptPerspective" >
+	       <description>%NewClassWizard.desc</description>
+		</wizard>		
+	</extension>
 </plugin>        

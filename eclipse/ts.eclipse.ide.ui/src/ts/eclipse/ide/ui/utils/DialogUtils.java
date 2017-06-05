@@ -13,7 +13,6 @@ package ts.eclipse.ide.ui.utils;
 import java.util.Collection;
 
 import org.eclipse.core.resources.IContainer;
-import org.eclipse.core.resources.IFolder;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.resources.ResourcesPlugin;
@@ -24,6 +23,7 @@ import org.eclipse.jface.viewers.Viewer;
 import org.eclipse.jface.viewers.ViewerFilter;
 import org.eclipse.jface.window.Window;
 import org.eclipse.swt.widgets.Shell;
+import org.eclipse.ui.dialogs.ElementTreeSelectionDialog;
 import org.eclipse.ui.dialogs.SelectionDialog;
 import org.eclipse.ui.model.WorkbenchContentProvider;
 import org.eclipse.ui.model.WorkbenchLabelProvider;
@@ -101,14 +101,14 @@ public class DialogUtils {
 		return null;
 	}
 
-	private static SelectionDialog createFolderDialog(String initialFolder, final IProject project,
+	public static ElementTreeSelectionDialog createFolderDialog(String initialFolder, final IProject project,
 			final boolean showAllProjects, final boolean showFolder, Shell shell) {
 
 		ILabelProvider lp = new WorkbenchLabelProvider();
 		ITreeContentProvider cp = new WorkbenchContentProvider();
 		FolderSelectionDialog dialog = new FolderSelectionDialog(shell, lp, cp);
 		// dialog.setTitle(TypeScriptUIMessages.TernModuleOptionsPanel_selectPathDialogTitle);
-		IFolder folder = StringUtils.isEmpty(initialFolder) ? null
+		IContainer folder = StringUtils.isEmpty(initialFolder) ? project
 				: (project != null ? project.getFolder(initialFolder)
 						: ResourcesPlugin.getWorkspace().getRoot().getFolder(new Path(initialFolder)));
 		if (folder != null && folder.exists()) {

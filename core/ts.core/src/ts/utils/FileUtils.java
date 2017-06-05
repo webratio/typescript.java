@@ -28,7 +28,8 @@ public class FileUtils {
 	public static final String MAP_EXTENSION = "map";
 	public static final String JS_MAP_EXTENSION = JS_EXTENSION + "." + MAP_EXTENSION;
 	public static final String D_TS_EXTENSION = "d." + TS_EXTENSION;
-
+	public static final String DEFINITION_TS_EXTENSION = "d.ts";
+	
 	/**
 	 * Configuration file
 	 */
@@ -37,7 +38,8 @@ public class FileUtils {
 
 	public static final String TSCONFIG_JSON = "tsconfig.json";
 	public static final String JSCONFIG_JSON = "jsconfig.json";
-
+	public static final String TSLINT_JSON = "tslint.json";
+	
 	/**
 	 * Folders
 	 */

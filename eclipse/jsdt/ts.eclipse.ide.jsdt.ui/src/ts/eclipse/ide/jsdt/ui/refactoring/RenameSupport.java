@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2007 IBM Corporation and others.
+ * Copyright (c) 2000, 2011 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -7,18 +7,15 @@
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
- *     Angelo ZERR : copied from  org.eclipse.wst.jsdt.internal.ui.wizards.IStatusChangeListener     
  *******************************************************************************/
-package ts.eclipse.ide.internal.ui.dialogs;
+package ts.eclipse.ide.jsdt.ui.refactoring;
 
-import org.eclipse.core.runtime.IStatus;
+import org.eclipse.ltk.core.refactoring.RefactoringStatus;
+import org.eclipse.ltk.core.refactoring.participants.RenameRefactoring;
 
-public interface IStatusChangeListener {
+public class RenameSupport {
+
+	private RenameRefactoring fRefactoring;
+	private RefactoringStatus fPreCheckStatus;
 	
-	/**
-	 * Notifies this listener that the given status has changed.
-	 * 
-	 * @param	status	the new status
-	 */
-	void statusChanged(IStatus status);
 }

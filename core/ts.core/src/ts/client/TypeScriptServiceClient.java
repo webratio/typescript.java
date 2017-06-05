@@ -38,11 +38,13 @@ import ts.client.diagnostics.DiagnosticEventBody;
 import ts.client.installtypes.BeginInstallTypesEventBody;
 import ts.client.installtypes.EndInstallTypesEventBody;
 import ts.client.installtypes.IInstallTypesListener;
+import ts.client.jsdoc.TextInsertion;
 import ts.client.navbar.NavigationBarItem;
 import ts.client.occurrences.OccurrencesResponseItem;
 import ts.client.projectinfo.ProjectInfo;
 import ts.client.quickinfo.QuickInfo;
 import ts.client.references.ReferencesResponseBody;
+import ts.client.rename.RenameResponseBody;
 import ts.client.signaturehelp.SignatureHelpItems;
 import ts.internal.FileTempHelper;
 import ts.internal.SequenceHelper;
@@ -55,6 +57,7 @@ import ts.internal.client.protocol.CompletionDetailsRequest;
 import ts.internal.client.protocol.CompletionsRequest;
 import ts.internal.client.protocol.ConfigureRequest;
 import ts.internal.client.protocol.DefinitionRequest;
+import ts.internal.client.protocol.DocCommentTemplateRequest;
 import ts.internal.client.protocol.FormatRequest;
 import ts.internal.client.protocol.GetSupportedCodeFixesRequest;
 import ts.internal.client.protocol.GeterrForProjectRequest;
@@ -71,6 +74,7 @@ import ts.internal.client.protocol.ProjectInfoRequest;
 import ts.internal.client.protocol.QuickInfoRequest;
 import ts.internal.client.protocol.ReferencesRequest;
 import ts.internal.client.protocol.ReloadRequest;
+import ts.internal.client.protocol.RenameRequest;
 import ts.internal.client.protocol.Request;
 import ts.internal.client.protocol.Response;
 import ts.internal.client.protocol.SemanticDiagnosticsSyncRequest;
@@ -81,6 +85,8 @@ import ts.nodejs.INodejsProcess;
 import ts.nodejs.INodejsProcessListener;
 import ts.nodejs.NodejsProcessAdapter;
 import ts.nodejs.NodejsProcessManager;
+import ts.repository.TypeScriptRepositoryManager;
+import ts.utils.FileUtils;
 
 /**
  * TypeScript service client implementation.
@@ -150,13 +156,15 @@ public class TypeScriptServiceClient implements ITypeScriptServiceClient {
 	}
 
 	public TypeScriptServiceClient(final File projectDir, File tsserverFile, File nodeFile) throws TypeScriptException {
-		this(projectDir, tsserverFile, nodeFile, false, false);
+		this(projectDir, tsserverFile, nodeFile, false, false, null);
 	}
 
-	public TypeScriptServiceClient(final File projectDir, File tsserverFile, File nodeFile, boolean enableTelemetry,
-			boolean disableAutomaticTypingAcquisition) throws TypeScriptException {
-		this(NodejsProcessManager.getInstance().create(projectDir, tsserverFile, nodeFile,
-				new INodejsLaunchConfiguration() {
+	public TypeScriptServiceClient(final File projectDir, File typescriptDir, File nodeFile, boolean enableTelemetry,
+			boolean disableAutomaticTypingAcquisition, File tsserverPluginsFile) throws TypeScriptException {
+		this(NodejsProcessManager.getInstance().create(projectDir,
+				tsserverPluginsFile != null ? tsserverPluginsFile
+						: TypeScriptRepositoryManager.getTsserverFile(typescriptDir),
+				nodeFile, new INodejsLaunchConfiguration() {
 
 					@Override
 					public List<String> createNodeArgs() {
@@ -169,7 +177,11 @@ public class TypeScriptServiceClient implements ITypeScriptServiceClient {
 						if (disableAutomaticTypingAcquisition) {
 							args.add("--disableAutomaticTypingAcquisition");
 						}
-						//args.add("--useSingleInferredProject");
+						if (tsserverPluginsFile != null) {
+							args.add("--typescriptDir");
+							args.add(FileUtils.getPath(typescriptDir));
+						}
+						// args.add("--useSingleInferredProject");
 						return args;
 					}
 				}, TSSERVER_FILE_TYPE));
@@ -381,6 +393,12 @@ public class TypeScriptServiceClient implements ITypeScriptServiceClient {
 	}
 
 	@Override
+	public CompletableFuture<RenameResponseBody> rename(String file, int line, int offset, Boolean findInComments,
+			Boolean findInStrings) throws TypeScriptException {
+		return execute(new RenameRequest(file, line, offset, findInComments, findInStrings), true);
+	}
+
+	@Override
 	public CompletableFuture<List<NavigationBarItem>> navbar(String fileName, IPositionProvider positionProvider)
 			throws TypeScriptException {
 		return execute(new NavBarRequest(fileName, positionProvider), true);
@@ -437,6 +455,12 @@ public class TypeScriptServiceClient implements ITypeScriptServiceClient {
 		return execute(new NavTreeRequest(fileName, positionProvider), true);
 	}
 
+	@Override
+	public CompletableFuture<TextInsertion> docCommentTemplate(String fileName, int line, int offset)
+			throws TypeScriptException {
+		return execute(new DocCommentTemplateRequest(fileName, line, offset), true);
+	}
+	
 	// Since 2.1.0
 
 	@Override
@@ -463,11 +487,23 @@ public class TypeScriptServiceClient implements ITypeScriptServiceClient {
 			return null;
 		}
 		final CompletableFuture<T> result = new CompletableFuture<T>() {
-			/*
-			 * @Override public boolean cancel(boolean mayInterruptIfRunning) {
-			 * sendCancelNotification(id); return
-			 * super.cancel(mayInterruptIfRunning); }
-			 */
+
+			@Override
+			public boolean cancel(boolean mayInterruptIfRunning) {
+				if (request instanceof IRequestEventable) {
+					List<String> keys = ((IRequestEventable) request).getKeys();
+					synchronized (receivedRequestMap) {
+						for (String key : keys) {
+							receivedRequestMap.remove(key);
+						}
+					}
+				} else {
+					synchronized (sentRequestMap) {
+						sentRequestMap.remove(request.getSeq());
+					}
+				}
+				return super.cancel(mayInterruptIfRunning);
+			}
 		};
 		if (request instanceof IRequestEventable) {
 			Consumer<Event<?>> responseHandler = (event) -> {

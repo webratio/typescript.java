@@ -15,10 +15,13 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import ts.OS;
+import ts.utils.FileUtils;
 import ts.utils.IOUtils;
+import ts.utils.ProcessHelper;
 import ts.utils.StringUtils;
 
 /**
@@ -27,14 +30,16 @@ import ts.utils.StringUtils;
  */
 public class NodejsProcessHelper {
 
+	private static final String NODE_FILENAME = "node";
+
 	private static final String[] WINDOWS_NODE_PATHS = new String[] {
 			"C:/Program Files/nodejs/node.exe".replace('/', File.separatorChar),
-			"C:/Program Files (x86)/nodejs/node.exe".replace('/', File.separatorChar), "node" };
+			"C:/Program Files (x86)/nodejs/node.exe".replace('/', File.separatorChar), NODE_FILENAME };
 
 	private static final String[] MACOS_NODE_PATHS = new String[] { "/usr/local/bin/node", "/opt/local/bin/node",
-			"node" };
+			NODE_FILENAME };
 
-	private static final String[] LINUX_NODE_PATHS = new String[] { "/usr/local/bin/node", "node" };
+	private static final String[] LINUX_NODE_PATHS = new String[] { "/usr/local/bin/node", NODE_FILENAME };
 
 	private NodejsProcessHelper() {
 	}
@@ -48,7 +53,7 @@ public class NodejsProcessHelper {
 		if (nodeFile != null) {
 			return nodeFile.getAbsolutePath();
 		}
-		return "node";
+		return NODE_FILENAME;
 	}
 
 	public static String getDefaultNodejsPath(OS os) {
@@ -74,66 +79,39 @@ public class NodejsProcessHelper {
 		}
 	}
 
-	public static File findNode(OS os) {
-		String nodeFileName = getNodeFileName(os);
-		String path = System.getenv("PATH");
-		String[] paths = path.split("" + File.pathSeparatorChar, 0);
-		List<String> directories = new ArrayList<String>();
-		for (String p : paths) {
-			directories.add(p);
+	public static String[] getNodejsPaths(OS os) {
+		List<String> paths = new ArrayList<>(Arrays.asList(getDefaultNodejsPaths(os)));
+		File nodeFile = findNode(os);
+		if (nodeFile != null) {
+			paths.add(0, nodeFile.getAbsolutePath());
 		}
-
-		// ensure /usr/local/bin is included for OS X
-		if (os == OS.MacOS) {
-			directories.add("/usr/local/bin");
-		}
-
-		// search for Node.js in the PATH directories
-		for (String directory : directories) {
-			File nodeFile = new File(directory, nodeFileName);
-
-			if (nodeFile.exists()) {
-				return nodeFile;
-			}
-		}
-
-		return getNodeLocation(os);
+		return paths.toArray(StringUtils.EMPTY_STRING);
 	}
 
-	private static String getNodeFileName(OS os) {
-		if (os == OS.Windows) {
-			return "node.exe";
-		}
-		return "node";
+	public static File findNode(OS os) {
+		String extension = os == OS.Windows ? ".exe" : null;
+		return ProcessHelper.findLocation(NODE_FILENAME, os, extension);
 	}
 
 	/**
-	 * Returns the node.js location by using command "which node".
+	 * Returns the nodejs version and null otherwise.
 	 * 
-	 * @param os
-	 * @return the node.js location by using command "which node".
+	 * @param nodejsFile
+	 * @return the nodejs version and null otherwise.
 	 */
-	private static File getNodeLocation(OS os) {
-		String[] command = new String[] { "/bin/bash", "-c", "which node" };
-		if (os == OS.Windows) {
-			command = new String[] { "cmd", "/c", "where node" };
-		} else {
-			command = new String[] { "/bin/bash", "-c", "which node" };
-		}
-		BufferedReader reader = null;
-		try {
-			Process p = Runtime.getRuntime().exec(command);
-			reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
-			String nodeFile = reader.readLine();
-			if (StringUtils.isEmpty(nodeFile)) {
+	public static String getNodeVersion(File nodejsFile) {
+		if (nodejsFile != null) {
+			BufferedReader reader = null;
+			try {
+				String command = FileUtils.getPath(nodejsFile) + " --version";
+				Process p = Runtime.getRuntime().exec(command);
+				reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
+				return reader.readLine();
+			} catch (IOException e) {
 				return null;
+			} finally {
+				IOUtils.closeQuietly(reader);
 			}
-			File f = new File(nodeFile);
-			return f.exists() ? f : null;
-		} catch (IOException e) {
-			//e.printStackTrace();
-		} finally {
-			IOUtils.closeQuietly(reader);
 		}
 		return null;
 	}
