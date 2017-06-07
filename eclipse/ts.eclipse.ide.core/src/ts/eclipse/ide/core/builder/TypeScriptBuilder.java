@@ -166,7 +166,11 @@ public class TypeScriptBuilder extends IncrementalProjectBuilder {
 			throws CoreException {
 		if (tsProject.canSupport(CommandNames.CompileOnSaveEmitFile)) {
 			// compile with tsserver (since TypeScript 2.0.5)
-			compileWithTsserver(tsProject, deltas, monitor);
+			// WR cannot compile with tsserver because of open bugs that make
+			// markers unreliable
+			// compileWithTsserver(tsProject, deltas, monitor);
+			compileWithTsc(tsProject, deltas, monitor);
+			// WR end
 		} else {
 			// compile with tsc (more slow than tsserver).
 			compileWithTsc(tsProject, deltas, monitor);
