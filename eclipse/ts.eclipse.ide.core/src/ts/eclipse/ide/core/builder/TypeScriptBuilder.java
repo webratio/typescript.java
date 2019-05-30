@@ -188,7 +188,7 @@ public class TypeScriptBuilder extends IncrementalProjectBuilder {
 	private void compileWithTsc(IIDETypeScriptProject tsProject, Collection<IResourceDelta> deltas, IProgressMonitor monitor)
 			throws CoreException {
 
-		final List<IFile> invalidatedTsconfigFiles = new ArrayList<>();
+		final Set<IProject> invalidatedProjects = new HashSet<>();
 		final IResourceDeltaVisitor tsconfigDeltaVisitor = new IResourceDeltaVisitor() {
 
 			@Override
@@ -201,7 +201,12 @@ public class TypeScriptBuilder extends IncrementalProjectBuilder {
 				case IResource.ROOT:
 					return true;
 				case IResource.PROJECT:
+					return true;
 				case IResource.FOLDER:
+					if ("node_modules".equals(resource.getName()) && delta.getAffectedChildren().length > 0) {
+						invalidatedProjects.add(resource.getProject());
+						return false; // no need to explore module differences
+					}
 					return true;
 				case IResource.FILE:
 					int kind = delta.getKind();
@@ -210,13 +215,13 @@ public class TypeScriptBuilder extends IncrementalProjectBuilder {
 					case IResourceDelta.CHANGED:
 						if (TypeScriptResourceUtil.isTsConfigFile(resource)) {
 							JsonConfigResourcesManager.getInstance().addOrUpdate((IFile) resource);
-							invalidatedTsconfigFiles.add((IFile) resource);
+							invalidatedProjects.add(resource.getProject());
 						}
 						break;
 					case IResourceDelta.REMOVED:
 						if (TypeScriptResourceUtil.isTsConfigFile(resource)) {
 							JsonConfigResourcesManager.getInstance().remove((IFile) resource);
-							invalidatedTsconfigFiles.add((IFile) resource);
+							invalidatedProjects.add(resource.getProject());
 						}
 						break;
 					}
@@ -229,10 +234,10 @@ public class TypeScriptBuilder extends IncrementalProjectBuilder {
 			delta.accept(tsconfigDeltaVisitor);
 		}
 		
-		// If a tsconfig.json in this project changed, back off and do a full
-		// build instead
-		for (IFile tsconfigFile : invalidatedTsconfigFiles) {
-			if (tsconfigFile.getProject().equals(getProject())) {
+		// If a tsconfig.json or installed modules in this project changed, back
+		// off and do a full build instead
+		for (IProject prj : invalidatedProjects) {
+			if (prj.equals(getProject())) {
 				fullBuild(tsProject, monitor);
 				return;
 			}
