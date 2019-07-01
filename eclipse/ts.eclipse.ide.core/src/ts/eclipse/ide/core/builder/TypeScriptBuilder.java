@@ -260,7 +260,13 @@ public class TypeScriptBuilder extends IncrementalProjectBuilder {
 				case IResource.ROOT:
 					return true;
 				case IResource.PROJECT:
-					return TypeScriptResourceUtil.isTypeScriptProject((IProject) resource);
+					if (TypeScriptResourceUtil.isTypeScriptProject((IProject) resource)) {
+						if (buildPath.isScopeEntrance(resource)) {
+							lastScopeFolderDepth = resource.getFullPath().segmentCount();
+						}
+						return true;
+					}
+					return false;
 				case IResource.FOLDER:
 					int folderDepth = resource.getFullPath().segmentCount();
 					if (lastScopeFolderDepth < 0 || folderDepth <= lastScopeFolderDepth) {
