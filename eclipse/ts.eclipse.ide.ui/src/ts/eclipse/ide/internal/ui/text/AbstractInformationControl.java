@@ -41,7 +41,6 @@ import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Text;
 import org.eclipse.swt.widgets.Tree;
 import org.eclipse.swt.widgets.TreeItem;
-import org.eclipse.ui.internal.ide.StringMatcher;
 
 import ts.client.FileSpan;
 import ts.client.navbar.NavigationBarItem;
